@@ -1,6 +1,6 @@
 "use client"
 import { useState, useEffect } from 'react'
-import { supabase } from './lib/supabase' 
+import { supabase } from '@/lib/supabase'
 
 const LISTA_BARBEROS = [
   { nombre: 'Nombre del Dueño', foto: 'https://i.pravatar.cc/150?img=11' },
