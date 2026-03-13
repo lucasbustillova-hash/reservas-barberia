@@ -15,16 +15,19 @@ export default function TurnosAdmin() {
   }, [])
 
   async function fetchTurnos() {
-    setLoading(true)
-    const { data, error } = await supabase
-      .from('reservas')
-      .select('*')
-      .order('fecha', { ascending: true })
-      .order('hora', { ascending: true })
-    
-    if (!error) setTurnos(data)
-    setLoading(false)
+  setLoading(true)
+  const { data, error } = await supabase
+    .from('reservas')
+    .select('*')
+  
+  if (error) {
+    alert("Error de conexión: " + error.message) // Esto nos dirá si la tabla no existe o la llave está mal
+  } else {
+    alert("Conexión exitosa. Se encontraron " + data.length + " registros.") // Esto nos dirá si Supabase devuelve algo
+    setTurnos(data)
   }
+  setLoading(false)
+}
 
   async function eliminarTurno(id, nombreCliente) {
     const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el turno de ${nombreCliente}? Esto liberará el espacio en la agenda.`);
