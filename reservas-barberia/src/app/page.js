@@ -151,7 +151,10 @@ export default function Home() {
             <div className="flex gap-4 justify-center">
               {LISTA_BARBEROS.map((b) => (
                 <div key={b.nombre} onClick={() => seleccionarBarbero(b.nombre)} className={`flex flex-col items-center cursor-pointer p-2 rounded-2xl border-2 transition-all ${formData.barbero === b.nombre ? 'border-blue-600 bg-blue-50 shadow-md' : 'border-gray-100 hover:bg-gray-50'}`}>
-                  <img src={b.foto} className="w-14 h-14 rounded-full object-cover mb-1 border-2 border-gray-200" />
+                  <img 
+  src={b.foto} 
+  className="w-20 h-20 rounded-full object-cover mb-2 border-2 border-gray-200 shadow-sm" 
+/>
                   <span className="text-[10px] font-black uppercase text-gray-800">{b.nombre.split(' ')[0]}</span>
                 </div>
               ))}
