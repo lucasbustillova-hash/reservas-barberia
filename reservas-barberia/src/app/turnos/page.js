@@ -18,11 +18,10 @@ export default function TurnosAdmin() {
     const { data, error } = await supabase
       .from('reservas')
       .select('*')
-      .order('fecha_hora', { ascending: true }) // <--- CORREGIDO AQUÍ
+      .order('fecha_hora', { ascending: true })
     
     if (error) {
       console.error(error)
-      // Si da error por el orden, al menos intentamos traer los datos sin orden
       const { data: dataSinOrden } = await supabase.from('reservas').select('*')
       setTurnos(dataSinOrden || [])
     } else {
@@ -31,8 +30,8 @@ export default function TurnosAdmin() {
     setLoading(false)
   }
 
-  async function eliminarTurno(id, nombreCliente) {
-    const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el turno de ${nombreCliente}?`);
+  async function eliminarTurno(id, nombre) {
+    const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el turno de ${nombre}?`);
     if (confirmar) {
       const { error } = await supabase.from('reservas').delete().eq('id', id)
       if (error) {
@@ -91,48 +90,53 @@ export default function TurnosAdmin() {
           </div>
         ) : (
           <div className="grid gap-4">
-            {turnosFiltrados.map((t) => (
-              <div 
-                key={t.id} 
-                className="bg-gray-800 border border-gray-700 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4"
-              >
-                <div className="flex-1 w-full text-center md:text-left">
-                  <div className="flex flex-wrap justify-center md:justify-start items-center gap-2 mb-2">
-                    <span className="bg-yellow-500 text-black font-black px-2 py-1 rounded-md text-sm">
-                      {t.hora || '00:00'}
-                    </span>
-                    <span className="text-gray-400 font-medium text-sm">
-                      {t.fecha_hora || t.fecha || 'Sin fecha'} {/* CORREGIDO AQUÍ */}
-                    </span>
-                    <span className="text-yellow-500/80 text-xs font-bold uppercase">
-                      {t.barbero || 'Sin barbero'}
-                    </span>
+            {turnosFiltrados.map((t) => {
+              // Definimos el nombre real buscando en las columnas posibles
+              const nombreReal = t.cliente_nombre || t.cliente || 'Sin nombre';
+              
+              return (
+                <div 
+                  key={t.id} 
+                  className="bg-gray-800 border border-gray-700 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4"
+                >
+                  <div className="flex-1 w-full text-center md:text-left">
+                    <div className="flex flex-wrap justify-center md:justify-start items-center gap-2 mb-2">
+                      <span className="bg-yellow-500 text-black font-black px-2 py-1 rounded-md text-sm">
+                        {t.hora || '00:00'}
+                      </span>
+                      <span className="text-gray-400 font-medium text-sm">
+                        {t.fecha_hora || 'Sin fecha'}
+                      </span>
+                      <span className="text-yellow-500/80 text-xs font-bold uppercase">
+                        {t.barbero || 'Sin barbero'}
+                      </span>
+                    </div>
+                    <h3 className="text-2xl font-bold text-white uppercase">{nombreReal}</h3>
+                    <p className="text-gray-400 text-sm mt-1">
+                      <span className="text-gray-600">Servicio:</span> {t.servicio || 'General'}
+                    </p>
                   </div>
-                  <h3 className="text-2xl font-bold text-white uppercase">{t.cliente || 'Cliente Anónimo'}</h3>
-                  <p className="text-gray-400 text-sm mt-1">
-                    <span className="text-gray-600">Servicio:</span> {t.servicio || 'General'}
-                  </p>
-                </div>
-                
-                <div className="flex gap-2 w-full md:w-auto">
-                  {t.telefono && (
-                    <a 
-                      href={`https://wa.me/${t.telefono.replace(/\s+/g, '')}?text=Hola%20${t.cliente},%20te%20escribo%20de%20Barbería%20Charlie.`}
-                      target="_blank"
-                      className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl text-center text-sm"
+                  
+                  <div className="flex gap-2 w-full md:w-auto">
+                    {t.telefono && (
+                      <a 
+                        href={`https://wa.me/${t.telefono.replace(/\s+/g, '')}?text=Hola%20${nombreReal},%20te%20escribo%20de%20Barbería%20Charlie.`}
+                        target="_blank"
+                        className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl text-center text-sm"
+                      >
+                        WhatsApp
+                      </a>
+                    )}
+                    <button 
+                      onClick={() => eliminarTurno(t.id, nombreReal)}
+                      className="bg-red-900/20 text-red-500 p-3 rounded-xl border border-red-900/30"
                     >
-                      WhatsApp
-                    </a>
-                  )}
-                  <button 
-                    onClick={() => eliminarTurno(t.id, t.cliente || 'este turno')}
-                    className="bg-red-900/20 text-red-500 p-3 rounded-xl border border-red-900/30"
-                  >
-                    🗑️
-                  </button>
+                      🗑️
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
