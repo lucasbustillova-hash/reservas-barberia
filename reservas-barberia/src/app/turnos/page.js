@@ -31,7 +31,7 @@ export default function TurnosAdmin() {
   }
 
   async function eliminarTurno(id, nombre) {
-    const confirmar = window.confirm(`¿Estás seguro de que quieres eliminar el turno de ${nombre}?`);
+    const confirmar = window.confirm(`¿Estás seguro de eliminar la cita de ${nombre}?`);
     if (confirmar) {
       const { error } = await supabase.from('reservas').delete().eq('id', id)
       if (error) {
@@ -47,31 +47,36 @@ export default function TurnosAdmin() {
     : turnos.filter(t => t.barbero === filtroBarbero)
 
   return (
-    <div className="min-h-screen bg-gray-900 p-4 sm:p-8 text-white font-sans">
+    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 text-slate-900 font-sans">
       <div className="max-w-4xl mx-auto">
         
-        <header className="mb-8 border-b border-gray-800 pb-6">
-          <div className="flex justify-between items-center mb-6">
-            <h1 className="text-3xl font-black uppercase tracking-tighter text-yellow-500">
-              Agenda <span className="text-white">Charlie</span>
-            </h1>
+        {/* ENCABEZADO ESTILO MODERNO */}
+        <header className="mb-10 text-center md:text-left">
+          <div className="flex justify-between items-center mb-8">
+            <div>
+              <h1 className="text-4xl font-black tracking-tighter text-slate-900">
+                AGENDA <span className="text-yellow-600">CHARLIE</span>
+              </h1>
+              <p className="text-slate-500 font-medium uppercase text-[10px] tracking-widest">Panel de Administración</p>
+            </div>
             <button 
               onClick={fetchTurnos}
-              className="bg-gray-800 hover:bg-gray-700 text-gray-300 p-2 rounded-lg transition-all border border-gray-700"
+              className="bg-white hover:bg-slate-50 text-slate-600 p-3 rounded-2xl shadow-sm border border-slate-200 transition-all active:scale-95"
             >
               🔄
             </button>
           </div>
           
-          <div className="flex flex-wrap gap-2">
+          {/* FILTROS TIPO CAPSULA */}
+          <div className="flex flex-wrap gap-2 justify-center md:justify-start">
             {nombresBarberos.map(nombre => (
               <button
                 key={nombre}
                 onClick={() => setFiltroBarbero(nombre)}
-                className={`px-4 py-2 rounded-xl text-xs font-bold uppercase transition-all border ${
+                className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all border ${
                   filtroBarbero === nombre 
-                  ? 'bg-yellow-500 text-black border-yellow-500' 
-                  : 'bg-gray-800 text-gray-400 border-gray-700'
+                  ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
+                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
                 }`}
               >
                 {nombre}
@@ -82,54 +87,63 @@ export default function TurnosAdmin() {
 
         {loading ? (
           <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-yellow-500"></div>
+            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-slate-900"></div>
           </div>
         ) : turnosFiltrados.length === 0 ? (
-          <div className="bg-gray-800/50 p-12 rounded-3xl text-center border-2 border-dashed border-gray-800">
-            <p className="text-gray-500 text-lg">No hay citas para {filtroBarbero}</p>
+          <div className="bg-white p-16 rounded-[40px] text-center shadow-sm border border-slate-100">
+            <p className="text-slate-400 font-medium italic">No hay citas programadas para {filtroBarbero}</p>
           </div>
         ) : (
-          <div className="grid gap-4">
+          <div className="space-y-4">
             {turnosFiltrados.map((t) => {
-              // Definimos el nombre real buscando en las columnas posibles
               const nombreReal = t.cliente_nombre || t.cliente || 'Sin nombre';
+              const tel = t.telefono ? t.telefono.replace(/\s+/g, '') : '';
               
               return (
                 <div 
                   key={t.id} 
-                  className="bg-gray-800 border border-gray-700 p-5 rounded-2xl flex flex-col md:flex-row justify-between items-center gap-4"
+                  className="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all flex flex-col md:flex-row items-stretch"
                 >
-                  <div className="flex-1 w-full text-center md:text-left">
-                    <div className="flex flex-wrap justify-center md:justify-start items-center gap-2 mb-2">
-                      <span className="bg-yellow-500 text-black font-black px-2 py-1 rounded-md text-sm">
-                        {t.hora || '00:00'}
-                      </span>
-                      <span className="text-gray-400 font-medium text-sm">
-                        {t.fecha_hora || 'Sin fecha'}
-                      </span>
-                      <span className="text-yellow-500/80 text-xs font-bold uppercase">
-                        {t.barbero || 'Sin barbero'}
+                  {/* BLOQUE HORA: Destacado en negro/oscuro para contraste */}
+                  <div className="bg-slate-900 text-white p-8 flex flex-col justify-center items-center md:w-44 text-center">
+                    <span className="text-xs font-bold opacity-50 mb-1 tracking-tighter">HORARIO</span>
+                    <span className="text-4xl font-black tracking-tighter">{t.hora || '00:00'}</span>
+                    <span className="text-[10px] font-bold mt-2 bg-white/10 px-3 py-1 rounded-full">
+                      {t.fecha_hora || 'Pendiente'}
+                    </span>
+                  </div>
+
+                  {/* BLOQUE INFO */}
+                  <div className="p-8 flex-1 flex flex-col justify-center">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
+                      <span className="text-yellow-600 text-[10px] font-black uppercase tracking-widest">
+                        Barbero: {t.barbero || 'Charlie'}
                       </span>
                     </div>
-                    <h3 className="text-2xl font-bold text-white uppercase">{nombreReal}</h3>
-                    <p className="text-gray-400 text-sm mt-1">
-                      <span className="text-gray-600">Servicio:</span> {t.servicio || 'General'}
-                    </p>
+                    <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight mb-2">
+                      {nombreReal}
+                    </h3>
+                    <div className="flex flex-wrap gap-2">
+                      <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase">
+                        🏷️ {t.servicio || 'Servicio estándar'}
+                      </span>
+                    </div>
                   </div>
                   
-                  <div className="flex gap-2 w-full md:w-auto">
-                    {t.telefono && (
-                      <a 
-                        href={`https://wa.me/${t.telefono.replace(/\s+/g, '')}?text=Hola%20${nombreReal},%20te%20escribo%20de%20Barbería%20Charlie.`}
-                        target="_blank"
-                        className="flex-1 md:flex-none bg-green-600 hover:bg-green-700 text-white font-bold py-3 px-6 rounded-xl text-center text-sm"
-                      >
-                        WhatsApp
-                      </a>
-                    )}
+                  {/* BLOQUE ACCIONES */}
+                  <div className="px-8 pb-8 md:pb-0 md:px-8 flex items-center gap-3">
+                    <a 
+                      href={`https://wa.me/${tel}?text=Hola%20${nombreReal},%20te%20escribo%20de%20Barbería%20Charlie.`}
+                      target="_blank"
+                      className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-green-200 active:scale-95"
+                    >
+                      WHATSAPP
+                    </a>
                     <button 
                       onClick={() => eliminarTurno(t.id, nombreReal)}
-                      className="bg-red-900/20 text-red-500 p-3 rounded-xl border border-red-900/30"
+                      className="bg-red-50 hover:bg-red-100 text-red-500 p-4 rounded-2xl transition-colors border border-red-100"
+                      title="Eliminar cita"
                     >
                       🗑️
                     </button>
