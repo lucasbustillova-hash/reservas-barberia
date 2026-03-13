@@ -155,7 +155,7 @@ export default function Home() {
   src={b.foto} 
   className="w-20 h-20 rounded-full object-cover mb-2 border-2 border-gray-200 shadow-sm" 
 />
-                  <span className="text-[10px] font-black uppercase text-gray-800">{b.nombre.split(' ')[0]}</span>
+                  <span className="text-[10px] font-black uppercase text-gray-800">{b.nombre}</span>
                 </div>
               ))}
             </div>
