@@ -22,8 +22,7 @@ export default function TurnosAdmin() {
     
     if (error) {
       console.error(error)
-      const { data: dataSinOrden } = await supabase.from('reservas').select('*')
-      setTurnos(dataSinOrden || [])
+      setTurnos([])
     } else {
       setTurnos(data || [])
     }
@@ -42,41 +41,55 @@ export default function TurnosAdmin() {
     }
   }
 
+  // FUNCIÓN PARA FORMATEAR FECHA Y HORA (Día/Mes/Año)
+  const formatearFechaHora = (isoString) => {
+    if (!isoString) return { fecha: 'Sin fecha', hora: '00:00' };
+    const d = new Date(isoString);
+    
+    // Formato Día/Mes/Año
+    const fecha = d.toLocaleDateString('es-ES', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    });
+
+    // Formato Hora:Minutos
+    const hora = d.toLocaleTimeString('es-ES', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false
+    });
+
+    return { fecha, hora };
+  }
+
   const turnosFiltrados = filtroBarbero === 'Todos' 
     ? turnos 
     : turnos.filter(t => t.barbero === filtroBarbero)
 
   return (
-    <div className="min-h-screen bg-gray-50 p-4 sm:p-8 text-slate-900 font-sans">
+    <div className="min-h-screen bg-[#f8fafc] p-4 sm:p-8 text-slate-800 font-sans">
       <div className="max-w-4xl mx-auto">
         
-        {/* ENCABEZADO ESTILO MODERNO */}
-        <header className="mb-10 text-center md:text-left">
-          <div className="flex justify-between items-center mb-8">
-            <div>
-              <h1 className="text-4xl font-black tracking-tighter text-slate-900">
-                AGENDA <span className="text-yellow-600">CHARLIE</span>
-              </h1>
-              <p className="text-slate-500 font-medium uppercase text-[10px] tracking-widest">Panel de Administración</p>
-            </div>
-            <button 
-              onClick={fetchTurnos}
-              className="bg-white hover:bg-slate-50 text-slate-600 p-3 rounded-2xl shadow-sm border border-slate-200 transition-all active:scale-95"
-            >
+        <header className="mb-10">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-3xl font-black tracking-tight text-slate-900">
+              AGENDA <span className="text-yellow-600">CHARLIE</span>
+            </h1>
+            <button onClick={fetchTurnos} className="p-3 bg-white border border-slate-200 rounded-2xl shadow-sm hover:bg-slate-50 transition-all">
               🔄
             </button>
           </div>
           
-          {/* FILTROS TIPO CAPSULA */}
-          <div className="flex flex-wrap gap-2 justify-center md:justify-start">
+          <div className="flex flex-wrap gap-2">
             {nombresBarberos.map(nombre => (
               <button
                 key={nombre}
                 onClick={() => setFiltroBarbero(nombre)}
-                className={`px-5 py-2.5 rounded-full text-xs font-bold transition-all border ${
+                className={`px-6 py-2 rounded-xl text-xs font-bold transition-all border ${
                   filtroBarbero === nombre 
-                  ? 'bg-slate-900 text-white border-slate-900 shadow-md' 
-                  : 'bg-white text-slate-500 border-slate-200 hover:border-slate-400'
+                  ? 'bg-yellow-500 text-white border-yellow-500 shadow-md' 
+                  : 'bg-white text-slate-400 border-slate-200'
                 }`}
               >
                 {nombre}
@@ -86,64 +99,54 @@ export default function TurnosAdmin() {
         </header>
 
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-b-2 border-slate-900"></div>
-          </div>
+          <div className="text-center py-20 font-bold text-slate-400">Cargando agenda...</div>
         ) : turnosFiltrados.length === 0 ? (
-          <div className="bg-white p-16 rounded-[40px] text-center shadow-sm border border-slate-100">
-            <p className="text-slate-400 font-medium italic">No hay citas programadas para {filtroBarbero}</p>
+          <div className="bg-white p-16 rounded-[32px] text-center border border-slate-100 shadow-sm text-slate-400">
+            No hay citas para {filtroBarbero}
           </div>
         ) : (
-          <div className="space-y-4">
+          <div className="grid gap-6">
             {turnosFiltrados.map((t) => {
-              const nombreReal = t.cliente_nombre || t.cliente || 'Sin nombre';
+              const { fecha, hora } = formatearFechaHora(t.fecha_hora);
+              const nombreReal = t.cliente_nombre || 'Cliente';
               const tel = t.telefono ? t.telefono.replace(/\s+/g, '') : '';
               
               return (
                 <div 
                   key={t.id} 
-                  className="bg-white border border-slate-100 rounded-[32px] overflow-hidden shadow-sm hover:shadow-xl hover:scale-[1.01] transition-all flex flex-col md:flex-row items-stretch"
+                  className="bg-white border border-slate-100 rounded-[32px] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6 hover:shadow-md transition-shadow"
                 >
-                  {/* BLOQUE HORA: Destacado en negro/oscuro para contraste */}
-                  <div className="bg-slate-900 text-white p-8 flex flex-col justify-center items-center md:w-44 text-center">
-                    <span className="text-xs font-bold opacity-50 mb-1 tracking-tighter">HORARIO</span>
-                    <span className="text-4xl font-black tracking-tighter">{t.hora || '00:00'}</span>
-                    <span className="text-[10px] font-bold mt-2 bg-white/10 px-3 py-1 rounded-full">
-                      {t.fecha_hora || 'Pendiente'}
-                    </span>
+                  {/* HORA Y FECHA: Ahora más suave y elegante */}
+                  <div className="flex flex-col items-center md:items-start md:border-r border-slate-100 md:pr-8 min-w-[120px]">
+                    <span className="text-4xl font-black text-slate-900 tracking-tighter">{hora}</span>
+                    <span className="text-sm font-bold text-yellow-600 uppercase tracking-widest">{fecha}</span>
                   </div>
 
-                  {/* BLOQUE INFO */}
-                  <div className="p-8 flex-1 flex flex-col justify-center">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="w-2 h-2 rounded-full bg-green-500 animate-pulse"></span>
-                      <span className="text-yellow-600 text-[10px] font-black uppercase tracking-widest">
-                        Barbero: {t.barbero || 'Charlie'}
-                      </span>
-                    </div>
-                    <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight mb-2">
+                  {/* INFO CLIENTE */}
+                  <div className="flex-1 text-center md:text-left">
+                    <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">
+                      {t.barbero || 'Charlie'}
+                    </p>
+                    <h3 className="text-2xl font-extrabold text-slate-900 uppercase leading-none mb-2">
                       {nombreReal}
                     </h3>
-                    <div className="flex flex-wrap gap-2">
-                      <span className="bg-slate-100 text-slate-600 px-3 py-1 rounded-lg text-[10px] font-bold uppercase">
-                        🏷️ {t.servicio || 'Servicio estándar'}
-                      </span>
-                    </div>
+                    <span className="inline-block bg-slate-50 text-slate-500 text-[10px] font-bold px-3 py-1 rounded-lg border border-slate-100">
+                      ✂️ {t.servicio || 'Corte'}
+                    </span>
                   </div>
                   
-                  {/* BLOQUE ACCIONES */}
-                  <div className="px-8 pb-8 md:pb-0 md:px-8 flex items-center gap-3">
+                  {/* ACCIONES */}
+                  <div className="flex items-center gap-3 w-full md:w-auto">
                     <a 
                       href={`https://wa.me/${tel}?text=Hola%20${nombreReal},%20te%20escribo%20de%20Barbería%20Charlie.`}
                       target="_blank"
-                      className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-4 px-8 rounded-2xl text-xs transition-all shadow-lg shadow-green-200 active:scale-95"
+                      className="flex-1 md:flex-none bg-[#25D366] text-white font-bold py-4 px-8 rounded-2xl text-xs text-center hover:bg-[#128C7E] transition-colors shadow-lg shadow-green-100"
                     >
                       WHATSAPP
                     </a>
                     <button 
                       onClick={() => eliminarTurno(t.id, nombreReal)}
-                      className="bg-red-50 hover:bg-red-100 text-red-500 p-4 rounded-2xl transition-colors border border-red-100"
-                      title="Eliminar cita"
+                      className="p-4 bg-slate-50 text-slate-400 hover:text-red-500 rounded-2xl border border-slate-100 transition-colors"
                     >
                       🗑️
                     </button>
