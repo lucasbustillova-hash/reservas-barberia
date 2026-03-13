@@ -18,13 +18,14 @@ export default function TurnosAdmin() {
     const { data, error } = await supabase
       .from('reservas')
       .select('*')
-      .order('fecha', { ascending: true })
-      .order('hora', { ascending: true })
+      .order('fecha_hora', { ascending: true }) // <--- CORREGIDO AQUÍ
     
     if (error) {
-      alert("Error de conexión: " + error.message)
+      console.error(error)
+      // Si da error por el orden, al menos intentamos traer los datos sin orden
+      const { data: dataSinOrden } = await supabase.from('reservas').select('*')
+      setTurnos(dataSinOrden || [])
     } else {
-      // Quitamos el alert de "8 registros" para que no moleste cada vez
       setTurnos(data || [])
     }
     setLoading(false)
@@ -100,7 +101,9 @@ export default function TurnosAdmin() {
                     <span className="bg-yellow-500 text-black font-black px-2 py-1 rounded-md text-sm">
                       {t.hora || '00:00'}
                     </span>
-                    <span className="text-gray-400 font-medium text-sm">{t.fecha || 'Sin fecha'}</span>
+                    <span className="text-gray-400 font-medium text-sm">
+                      {t.fecha_hora || t.fecha || 'Sin fecha'} {/* CORREGIDO AQUÍ */}
+                    </span>
                     <span className="text-yellow-500/80 text-xs font-bold uppercase">
                       {t.barbero || 'Sin barbero'}
                     </span>
