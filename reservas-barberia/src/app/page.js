@@ -3,9 +3,22 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../lib/supabase'
 
 const LISTA_BARBEROS = [
-  { nombre: 'Nombre del Dueño', foto: 'https://i.pravatar.cc/150?img=11' },
-  { nombre: 'Nombre Barbero 2', foto: 'https://i.pravatar.cc/150?img=12' },
-  { nombre: 'Cualquiera', foto: 'https://ui-avatars.com/api/?name=Cualquiera&background=random' }
+  { 
+    nombre: 'Charlie', 
+    foto: '/charlie.png' 
+  },
+  { 
+    nombre: 'Barbero 2', 
+    foto: 'https://ui-avatars.com/api/?name=Barbero+2&background=random' 
+  },
+  { 
+    nombre: 'Barbero 3', 
+    foto: 'https://ui-avatars.com/api/?name=Barbero+3&background=random' 
+  },
+  { 
+    nombre: 'Barbero 4', 
+    foto: 'https://ui-avatars.com/api/?name=Barbero+4&background=random' 
+  }
 ];
 
 export default function Home() {
@@ -85,7 +98,7 @@ export default function Home() {
   return (
     <main className="min-h-screen bg-gray-100 p-4 flex items-center justify-center font-sans">
       <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-100">
-        <h1 className="text-2xl font-black text-center text-gray-900 mb-6 uppercase tracking-tight">Sistema de Reservas</h1>
+        <h1 className="text-2xl font-black text-center text-gray-900 mb-6 uppercase tracking-tight">Barbería Charlie</h1>
         
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Nombre */}
