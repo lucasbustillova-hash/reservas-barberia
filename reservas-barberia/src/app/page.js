@@ -52,14 +52,28 @@ export default function Home() {
   useEffect(() => {
     if (formData.fecha && formData.barbero) {
       const consultarOcupados = async () => {
+        // Pedimos todas las reservas del barbero
         const { data } = await supabase
           .from('reservas')
           .select('fecha_hora')
           .eq('barbero', formData.barbero)
-          .like('fecha_hora', `${formData.fecha}%`)
         
-        const ocupadas = data?.map(d => d.fecha_hora.split(' ')[1].substring(0, 5)) || []
-        setHorasOcupadas(ocupadas)
+        if (data) {
+          // Filtramos y extraemos la hora blindando errores de formato
+          const ocupadas = data
+            .filter(d => d.fecha_hora && d.fecha_hora.includes(formData.fecha)) // Que sea del día elegido
+            .map(d => {
+              // Si trae 'T', cortamos por ahí. Si trae espacio, cortamos por el espacio.
+              const parteHora = d.fecha_hora.includes('T') 
+                ? d.fecha_hora.split('T')[1] 
+                : d.fecha_hora.split(' ')[1];
+              
+              return parteHora ? parteHora.substring(0, 5) : null; // Nos quedamos con "11:00"
+            })
+            .filter(Boolean); // Limpiamos nulos
+            
+          setHorasOcupadas(ocupadas);
+        }
       }
       consultarOcupados()
     }
