@@ -34,7 +34,6 @@ export default function Home() {
   const [mensaje, setMensaje] = useState('')
   const [cargando, setCargando] = useState(false)
   
-  // NUEVO ESTADO: Guardará los datos del ticket cuando la reserva sea exitosa
   const [ticket, setTicket] = useState(null)
 
   const generarHorarios = () => {
@@ -92,10 +91,7 @@ export default function Home() {
     if (error) {
       setMensaje('❌ Error al guardar.')
     } else {
-      // MAGIA DEL TICKET: Generamos un código único aleatorio
       const codigoGenerado = 'CH-' + Math.random().toString(36).substring(2, 6).toUpperCase()
-      
-      // Guardamos el ticket y limpiamos el formulario por debajo
       setTicket({ ...formData, codigo: codigoGenerado })
       setFormData({ ...formData, cliente_nombre: '', cliente_telefono: '', hora: '', fecha: '' })
       setMensaje('')
@@ -103,7 +99,6 @@ export default function Home() {
     setCargando(false)
   }
 
-  // Función para resetear y volver a reservar
   const nuevaReserva = () => {
     setTicket(null)
   }
@@ -113,9 +108,6 @@ export default function Home() {
       <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-100 relative overflow-hidden">
         
         {ticket ? (
-          /* =========================================
-             INTERFAZ DEL TICKET DE CONFIRMACIÓN
-             ========================================= */
           <div className="animate-in zoom-in duration-500">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner">
@@ -127,9 +119,7 @@ export default function Home() {
               </p>
             </div>
 
-            {/* Tarjeta del Ticket (Estilo pase de abordar) */}
             <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 p-6 mb-6 relative">
-              {/* Recortes visuales de los bordes del ticket */}
               <div className="absolute -left-4 top-1/2 w-8 h-8 bg-white rounded-full border-r-2 border-dashed border-gray-300 transform -translate-y-1/2"></div>
               <div className="absolute -right-4 top-1/2 w-8 h-8 bg-white rounded-full border-l-2 border-dashed border-gray-300 transform -translate-y-1/2"></div>
               
@@ -170,14 +160,10 @@ export default function Home() {
             </button>
           </div>
         ) : (
-          /* =========================================
-             INTERFAZ DEL FORMULARIO NORMAL
-             ========================================= */
           <>
             <h1 className="text-2xl font-black text-center text-gray-900 mb-6 uppercase tracking-tight">Barbería Charlie</h1>
             
             <form onSubmit={handleSubmit} className="space-y-4">
-              {/* Nombre */}
               <div>
                 <label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Tu Nombre</label>
                 <input 
@@ -191,7 +177,6 @@ export default function Home() {
                 />
               </div>
 
-              {/* Teléfono */}
               <div>
                 <label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">WhatsApp</label>
                 <input 
@@ -205,10 +190,84 @@ export default function Home() {
                 />
               </div>
 
-              {/* Servicio */}
               <div>
                 <label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Servicio</label>
                 <select 
                   name="servicio" 
                   value={formData.servicio} 
-                  onChange={
+                  onChange={handleChange} 
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-black font-bold"
+                >
+                  <option value="Corte Clásico">Corte Clásico</option>
+                  <option value="Corte + Barba">Corte + Barba</option>
+                  <option value="Solo Barba">Solo Barba</option>
+                  <option value="Corte para Niños">Corte para Niños 👶</option>
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1 text-center">Selecciona tu Barbero</label>
+                <div className="flex gap-4 justify-center">
+                  {LISTA_BARBEROS.map((b) => (
+                    <div key={b.nombre} onClick={() => seleccionarBarbero(b.nombre)} className={`flex flex-col items-center cursor-pointer p-2 rounded-2xl border-2 transition-all ${formData.barbero === b.nombre ? 'border-blue-600 bg-blue-50 shadow-md scale-105' : 'border-gray-100 hover:bg-gray-50'}`}>
+                      <img 
+                        src={b.foto} 
+                        className="w-16 h-16 rounded-full object-cover mb-2 border-2 border-white shadow-sm" 
+                        alt={`Foto de ${b.nombre}`}
+                      />
+                      <span className="text-[10px] font-black uppercase text-gray-800 text-center">{b.nombre}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Día del corte</label>
+                <input 
+                  type="date" 
+                  name="fecha" 
+                  value={formData.fecha} 
+                  onChange={handleChange} 
+                  required 
+                  className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-black font-bold" 
+                />
+              </div>
+
+              {formData.fecha && (
+                <div className="animate-in fade-in zoom-in duration-300">
+                  <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1">Horas disponibles (45 min)</label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {horariosDisponibles.map((h) => {
+                      const estaOcupada = horasOcupadas.includes(h)
+                      return (
+                        <button
+                          key={h}
+                          type="button"
+                          disabled={estaOcupada}
+                          onClick={() => setFormData({ ...formData, hora: h })}
+                          className={`py-2 text-sm font-black rounded-xl border-2 transition-all ${estaOcupada ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60' : formData.hora === h ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200/50 scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600'}`}
+                        >
+                          {h}
+                        </button>
+                      )
+                    })}
+                  </div>
+                </div>
+              )}
+              
+              <button type="submit" disabled={cargando} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all uppercase tracking-widest text-sm active:scale-95 disabled:bg-gray-400 mt-6">
+                {cargando ? 'PROCESANDO...' : 'Confirmar Reserva'}
+              </button>
+            </form>
+
+            {mensaje && (
+              <div className={`mt-6 p-4 text-center font-black rounded-xl border-2 text-sm ${mensaje.includes('✅') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>
+                {mensaje}
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </main>
+  )
+}
