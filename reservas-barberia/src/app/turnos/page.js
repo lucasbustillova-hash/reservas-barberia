@@ -82,27 +82,37 @@ export default function TurnosAdmin() {
 
               const nombre = t.cliente_nombre || t.cliente || 'Cliente';
               const tel = t.telefono ? t.telefono.replace(/\s+/g, '') : '';
+              
+              // Si la reserva tiene código guardado, lo preparamos para el mensaje de WhatsApp también
+              const mensajeWhatsApp = t.codigo 
+                ? `Hola ${nombre}, te confirmo tu cita en Barbería Charlie. Tu código es #${t.codigo}. ¡Te esperamos!`
+                : `Hola ${nombre}, te escribo de Barbería Charlie.`;
 
               return (
-                /* AJUSTE: Borde más oscuro (border-slate-300) y sombra más fuerte (shadow-md) */
                 <div key={t.id} className="bg-white border-2 border-slate-300 rounded-[24px] p-6 shadow-md flex flex-col md:flex-row items-center gap-6 hover:shadow-xl transition-all">
                   <div className="text-center md:text-left md:border-r border-slate-200 md:pr-8 min-w-[120px]">
                     <div className="text-4xl font-black text-slate-900 tracking-tighter">{hora}</div>
                     <div className="text-sm font-bold text-yellow-600 uppercase tracking-widest mt-1">{fecha}</div>
                   </div>
                   <div className="flex-1 text-center md:text-left">
-                    {/* AJUSTE: Barbero más grande (text-sm -> text-base, font-black) */}
-                    <p className="text-base font-black text-slate-600 uppercase tracking-widest mb-1">
-                      <span className="text-slate-400 font-normal">Barbero:</span> {t.barbero || 'Charlie'}
-                    </p>
+                    <div className="flex flex-col md:flex-row items-center gap-2 mb-1 justify-center md:justify-start">
+                      <p className="text-base font-black text-slate-600 uppercase tracking-widest">
+                        <span className="text-slate-400 font-normal">Barbero:</span> {t.barbero || 'Charlie'}
+                      </p>
+                      {/* ETIQUETA DEL CÓDIGO REAL */}
+                      {t.codigo && (
+                        <span className="bg-blue-100 text-blue-700 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest border border-blue-200">
+                          #{t.codigo}
+                        </span>
+                      )}
+                    </div>
                     <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight">{nombre}</h3>
-                    {/* AJUSTE: Servicio más grande (text-[10px] -> text-sm, padding extra) */}
                     <span className="inline-block mt-3 bg-slate-100 text-slate-700 text-sm font-semibold px-4 py-2 rounded-lg border border-slate-200">
                        ✂️ {t.servicio || 'Corte Clásico'}
                     </span>
                   </div>
                   <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
-                    <a href={`https://wa.me/${tel}?text=Hola%20${nombre},%20te%20escribo%20de%20Barbería%20Charlie.`} target="_blank" rel="noopener noreferrer" className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-6 rounded-xl text-xs text-center shadow-lg shadow-green-100 transition-colors">WHATSAPP</a>
+                    <a href={`https://wa.me/${tel}?text=${encodeURIComponent(mensajeWhatsApp)}`} target="_blank" rel="noopener noreferrer" className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-6 rounded-xl text-xs text-center shadow-lg shadow-green-100 transition-colors">WHATSAPP</a>
                     <button onClick={() => eliminarTurno(t.id, nombre)} className="p-3 bg-slate-100 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl border border-slate-200 transition-colors">🗑️</button>
                   </div>
                 </div>
