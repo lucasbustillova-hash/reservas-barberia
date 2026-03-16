@@ -71,33 +71,42 @@ export default function Home() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    if (!formData.hora) { setMensaje('⚠️ Por favor elige una hora'); return }
+    
+    // 1. Validar que haya elegido una hora
+    if (!formData.hora) { 
+      setMensaje('⚠️ Por favor elige una hora'); 
+      return; 
+    }
+
+    // 2. NUEVA BARRERA: Validar que el teléfono tenga al menos 8 números reales
+    const telLimpio = formData.cliente_telefono.replace(/\D/g, ''); // Quita todo lo que no sea número
+    if (telLimpio.length < 8) {
+      setMensaje('⚠️ Por favor ingresa un número de WhatsApp válido (8 dígitos)');
+      return;
+    }
+
     setCargando(true)
 
-    // 1. GENERAMOS EL CÓDIGO PRIMERO
     const codigoGenerado = 'CH-' + Math.random().toString(36).substring(2, 6).toUpperCase()
 
-    // 2. LO AGREGAMOS A LOS DATOS QUE VAN A LA BASE DE DATOS
     const dataParaEnviar = {
       cliente_nombre: formData.cliente_nombre,
       cliente_telefono: formData.cliente_telefono,
       barbero: formData.barbero,
       servicio: formData.servicio,
       fecha_hora: `${formData.fecha} ${formData.hora}`,
-      codigo: codigoGenerado // ¡Aquí viaja a Supabase!
+      codigo: codigoGenerado 
     }
 
     const { error } = await supabase.from('reservas').insert([dataParaEnviar])
 
     if (error) {
-      // Detectamos si el error es exactamente por el candado que pusimos (código 23505)
       if (error.code === '23505') {
         setMensaje('❌ ¡Ups! Alguien más acaba de ganar este turno. Por favor, intenta con otro horario u otro barbero.');
       } else {
         setMensaje('❌ Hubo un problema de conexión. Por favor, intenta de nuevo.');
       }
     } else {
-      // 3. MOSTRAMOS EL TICKET CON EL MISMO CÓDIGO QUE SE GUARDÓ
       setTicket({ ...formData, codigo: codigoGenerado })
       setFormData({ ...formData, cliente_nombre: '', cliente_telefono: '', hora: '', fecha: '' })
       setMensaje('')
