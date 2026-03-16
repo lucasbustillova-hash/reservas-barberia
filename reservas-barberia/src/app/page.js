@@ -90,7 +90,12 @@ export default function Home() {
     const { error } = await supabase.from('reservas').insert([dataParaEnviar])
 
     if (error) {
-      setMensaje('❌ Error al guardar.')
+      // Detectamos si el error es exactamente por el candado que pusimos (código 23505)
+      if (error.code === '23505') {
+        setMensaje('❌ ¡Ups! Alguien más acaba de ganar este turno. Por favor, intenta con otro horario u otro barbero.');
+      } else {
+        setMensaje('❌ Hubo un problema de conexión. Por favor, intenta de nuevo.');
+      }
     } else {
       // 3. MOSTRAMOS EL TICKET CON EL MISMO CÓDIGO QUE SE GUARDÓ
       setTicket({ ...formData, codigo: codigoGenerado })
