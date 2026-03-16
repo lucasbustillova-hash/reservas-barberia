@@ -1,15 +1,18 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { supabase } from '../../lib/supabase'
+import { useParams } from 'next/navigation' // NUEVO: Para leer el negocio de la URL
+import { supabase } from '../../../lib/supabase' // ACTUALIZADO: Le agregamos un ../ extra por la ruta
 
 export default function TurnosAdmin() {
+  const params = useParams()
+  const slug = params.slug // Atrapa si estamos en /charlie/turnos o /salon/turnos
+
+  const [negocio, setNegocio] = useState(null)
   const [turnos, setTurnos] = useState([])
   const [loading, setLoading] = useState(true)
   
-  // ESTADOS DE FILTROS
   const [filtroBarbero, setFiltroBarbero] = useState('Todos')
   
-  // Función para obtener la fecha de hoy en formato YYYY-MM-DD
   const getHoy = () => {
     const d = new Date();
     const year = d.getFullYear();
@@ -18,30 +21,44 @@ export default function TurnosAdmin() {
     return `${year}-${month}-${day}`;
   };
   
-  // El filtro de fecha inicia por defecto en el día de hoy
   const [filtroFecha, setFiltroFecha] = useState(getHoy())
-
   const nombresBarberos = ['Todos', 'Charlie', 'Barbero 2', 'Barbero 3', 'Barbero 4']
 
+  // CARGAR DATOS CUANDO LEE LA URL
   useEffect(() => {
-    fetchTurnos()
-  }, [])
+    if (slug) cargarDatosYTurnos()
+  }, [slug])
 
-  async function fetchTurnos() {
+  async function cargarDatosYTurnos() {
     setLoading(true)
     try {
-      let { data, error } = await supabase
-        .from('reservas')
+      // 1. Buscar de qué negocio es este panel
+      const { data: negocioData, error: errorNegocio } = await supabase
+        .from('negocios')
         .select('*')
-        .order('fecha_hora', { ascending: true })
+        .eq('slug', slug)
+        .single()
       
-      if (error) {
-        console.warn("Fallo el ordenamiento, trayendo datos en modo seguro...");
-        const fallback = await supabase.from('reservas').select('*');
-        data = fallback.data;
+      if (errorNegocio || !negocioData) {
+        setLoading(false);
+        return;
       }
       
-      setTurnos(data || [])
+      setNegocio(negocioData);
+
+      // 2. MAGIA SaaS: Buscar SOLO los turnos de este negocio
+      let { data: turnosData, error: errorTurnos } = await supabase
+        .from('reservas')
+        .select('*')
+        .eq('negocio_id', negocioData.id) // El filtro de oro
+        .order('fecha_hora', { ascending: true })
+      
+      if (errorTurnos) {
+        const fallback = await supabase.from('reservas').select('*').eq('negocio_id', negocioData.id);
+        turnosData = fallback.data;
+      }
+      
+      setTurnos(turnosData || [])
     } catch (err) {
       console.error("Error fatal:", err)
     } finally {
@@ -56,30 +73,28 @@ export default function TurnosAdmin() {
     }
   }
 
-  // LÓGICA DE FILTRADO DOBLE (Por Barbero Y Por Fecha)
   const turnosFiltrados = turnos.filter(t => {
     const coincideBarbero = filtroBarbero === 'Todos' || t.barbero === filtroBarbero;
-    
     let coincideFecha = true;
     if (filtroFecha && t.fecha_hora) {
-      // Extraemos solo la parte de la fecha (YYYY-MM-DD) de la base de datos
       const fechaTurno = t.fecha_hora.includes('T') ? t.fecha_hora.split('T')[0] : t.fecha_hora.split(' ')[0];
       coincideFecha = fechaTurno === filtroFecha;
     }
-    
     return coincideBarbero && coincideFecha;
   })
+
+  // PANTALLAS DE CARGA Y ERROR
+  if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold tracking-widest animate-pulse">CARGANDO AGENDA...</div>
+  if (!negocio) return <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bold text-red-500">❌ Local no encontrado</div>
 
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 font-sans">
       <div className="max-w-4xl mx-auto">
         
-        {/* NUEVO DISEÑO DEL HEADER (Más estilo Dashboard) */}
         <header className="mb-8 bg-white p-6 rounded-[24px] shadow-sm border border-slate-200 flex flex-col gap-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-100 pb-6">
-            <h1 className="text-3xl font-black tracking-tighter">AGENDA <span className="text-yellow-600">CHARLIE</span></h1>
+            <h1 className="text-3xl font-black tracking-tighter uppercase">AGENDA <span className="text-yellow-600">{negocio.nombre}</span></h1>
             
-            {/* CONTROLES DE FECHA */}
             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-2">FECHA:</span>
               <input 
@@ -97,7 +112,6 @@ export default function TurnosAdmin() {
             </div>
           </div>
 
-          {/* CONTROLES DE BARBERO */}
           <div className="flex flex-col items-center gap-2">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filtrar por Barbero</span>
             <div className="flex gap-2 flex-wrap justify-center">
@@ -108,11 +122,8 @@ export default function TurnosAdmin() {
           </div>
         </header>
 
-        {/* CONTENIDO DE LA AGENDA */}
-        {loading ? (
-          <div className="text-center py-20 animate-pulse text-slate-400 font-bold tracking-widest">CARGANDO AGENDA...</div>
-        ) : turnosFiltrados.length === 0 ? (
-          <div className="bg-white p-12 rounded-[24px] text-center border-2 border-slate-200 shadow-sm flex flex-col items-center gap-3">
+        {turnosFiltrados.length === 0 ? (
+          <div className="bg-white p-12 rounded-[24px] text-center border border-slate-200 shadow-sm flex flex-col items-center gap-3">
             <span className="text-4xl">📅</span>
             <h3 className="text-xl font-black text-slate-700">Agenda Libre</h3>
             <p className="text-slate-500 font-medium text-sm">No hay citas programadas para esta fecha y barbero.</p>
@@ -120,34 +131,26 @@ export default function TurnosAdmin() {
         ) : (
           <div className="grid gap-6">
             {turnosFiltrados.map((t) => {
-              let fecha = 'Sin fecha';
-              let hora = '00:00';
-              
+              let fecha = 'Sin fecha'; let hora = '00:00';
               if (t.fecha_hora) {
                 const d = new Date(t.fecha_hora);
                 if (!isNaN(d.getTime())) { 
                   fecha = d.toLocaleDateString('es-ES', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
                   hora = d.toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' });
-                } else {
-                  fecha = t.fecha_hora;
-                }
+                } else { fecha = t.fecha_hora; }
               }
 
               const nombre = t.cliente_nombre || t.cliente || 'Cliente';
-              const nombreBarbero = t.barbero || 'Charlie';
+              const nombreBarbero = t.barbero || 'Barbero';
               
               const telefonoGuardado = t.cliente_telefono || t.telefono || '';
               let telLimpio = telefonoGuardado.replace(/\D/g, '');
-              
-              if (telLimpio.length === 8) {
-                telLimpio = '503' + telLimpio; 
-              } else if (telLimpio.length === 10) {
-                telLimpio = '1' + telLimpio; 
-              }
+              if (telLimpio.length === 8) telLimpio = '503' + telLimpio; 
+              else if (telLimpio.length === 10) telLimpio = '1' + telLimpio; 
               
               const mensajeWhatsApp = t.codigo 
-                ? `Hola ${nombre}, te confirmo tu cita en Barbería Charlie para el ${fecha} a las ${hora} con ${nombreBarbero}. Tu código es #${t.codigo}. ¡Te esperamos!`
-                : `Hola ${nombre}, te escribo de Barbería Charlie para confirmar tu cita del ${fecha} a las ${hora} con ${nombreBarbero}.`;
+                ? `Hola ${nombre}, te confirmo tu cita en ${negocio.nombre} para el ${fecha} a las ${hora} con ${nombreBarbero}. Tu código es #${t.codigo}. ¡Te esperamos!`
+                : `Hola ${nombre}, te escribo de ${negocio.nombre} para confirmar tu cita del ${fecha} a las ${hora} con ${nombreBarbero}.`;
 
               return (
                 <div key={t.id} className="bg-white border border-slate-200 rounded-[24px] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6 hover:shadow-md hover:border-blue-200 transition-all">
@@ -157,37 +160,17 @@ export default function TurnosAdmin() {
                   </div>
                   <div className="flex-1 text-center md:text-left">
                     <div className="flex flex-col md:flex-row items-center gap-2 mb-1 justify-center md:justify-start">
-                      <p className="text-sm font-black text-blue-600 uppercase tracking-widest">
-                        {nombreBarbero}
-                      </p>
-                      {t.codigo && (
-                        <span className="bg-slate-100 text-slate-600 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest border border-slate-200">
-                          #{t.codigo}
-                        </span>
-                      )}
+                      <p className="text-sm font-black text-blue-600 uppercase tracking-widest">{nombreBarbero}</p>
+                      {t.codigo && <span className="bg-slate-100 text-slate-600 text-[10px] font-black px-2 py-1 rounded-md uppercase tracking-widest border border-slate-200">#{t.codigo}</span>}
                     </div>
                     <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight">{nombre}</h3>
-                    <span className="inline-block mt-3 bg-slate-50 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">
-                       ✂️ {t.servicio || 'Corte Clásico'}
-                    </span>
+                    <span className="inline-block mt-3 bg-slate-50 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">✂️ {t.servicio || 'Servicio'}</span>
                   </div>
                   <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
                     {telLimpio ? (
-                      <a 
-                        href={`https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent(mensajeWhatsApp)}`} 
-                        target="_blank" 
-                        rel="noopener noreferrer" 
-                        className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-6 rounded-xl text-xs text-center shadow-md shadow-green-100 transition-colors"
-                      >
-                        WHATSAPP
-                      </a>
+                      <a href={`https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent(mensajeWhatsApp)}`} target="_blank" rel="noopener noreferrer" className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-6 rounded-xl text-xs text-center shadow-md shadow-green-100 transition-colors">WHATSAPP</a>
                     ) : (
-                      <button 
-                        onClick={() => alert("Este cliente no tiene un número de teléfono registrado.")}
-                        className="flex-1 md:flex-none bg-slate-100 text-slate-400 font-bold py-3 px-6 rounded-xl text-xs text-center cursor-not-allowed border border-slate-200"
-                      >
-                        SIN NÚMERO
-                      </button>
+                      <button onClick={() => alert("Este cliente no tiene un número registrado.")} className="flex-1 md:flex-none bg-slate-100 text-slate-400 font-bold py-3 px-6 rounded-xl text-xs text-center cursor-not-allowed border border-slate-200">SIN NÚMERO</button>
                     )}
                     <button onClick={() => eliminarTurno(t.id, nombre)} className="p-3 bg-white text-slate-400 hover:text-red-600 hover:bg-red-50 hover:border-red-200 rounded-xl border border-slate-200 transition-colors shadow-sm">🗑️</button>
                   </div>
