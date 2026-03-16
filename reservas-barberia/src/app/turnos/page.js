@@ -83,15 +83,16 @@ export default function TurnosAdmin() {
               const nombre = t.cliente_nombre || t.cliente || 'Cliente';
               const nombreBarbero = t.barbero || 'Charlie';
               
-              // --- LÓGICA INTELIGENTE DE PAÍS ---
-              let telLimpio = t.telefono ? t.telefono.replace(/\D/g, '') : '';
+              // CORRECCIÓN: Buscamos "cliente_telefono" (como se guarda ahora) o "telefono" (por si hay reservas viejas)
+              const telefonoGuardado = t.cliente_telefono || t.telefono || '';
+              
+              let telLimpio = telefonoGuardado.replace(/\D/g, '');
               
               if (telLimpio.length === 8) {
-                telLimpio = '503' + telLimpio; // El Salvador
+                telLimpio = '503' + telLimpio; 
               } else if (telLimpio.length === 10) {
-                telLimpio = '1' + telLimpio; // Estados Unidos / Canadá
+                telLimpio = '1' + telLimpio; 
               }
-              // Si tiene 11 o más, lo dejamos intacto asumiendo que ya trae el código de país.
               
               const mensajeWhatsApp = t.codigo 
                 ? `Hola ${nombre}, te confirmo tu cita en Barbería Charlie para el ${fecha} a las ${hora} con ${nombreBarbero}. Tu código es #${t.codigo}. ¡Te esperamos!`
