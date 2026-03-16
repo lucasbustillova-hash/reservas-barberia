@@ -83,12 +83,16 @@ export default function TurnosAdmin() {
               const nombre = t.cliente_nombre || t.cliente || 'Cliente';
               const nombreBarbero = t.barbero || 'Charlie';
               
+              // --- LÓGICA INTELIGENTE DE PAÍS ---
               let telLimpio = t.telefono ? t.telefono.replace(/\D/g, '') : '';
-              if (telLimpio.length === 8) {
-                telLimpio = '503' + telLimpio;
-              }
               
-              // AQUÍ ESTÁ EL MENSAJE ACTUALIZADO CON FECHA, HORA Y BARBERO
+              if (telLimpio.length === 8) {
+                telLimpio = '503' + telLimpio; // El Salvador
+              } else if (telLimpio.length === 10) {
+                telLimpio = '1' + telLimpio; // Estados Unidos / Canadá
+              }
+              // Si tiene 11 o más, lo dejamos intacto asumiendo que ya trae el código de país.
+              
               const mensajeWhatsApp = t.codigo 
                 ? `Hola ${nombre}, te confirmo tu cita en Barbería Charlie para el ${fecha} a las ${hora} con ${nombreBarbero}. Tu código es #${t.codigo}. ¡Te esperamos!`
                 : `Hola ${nombre}, te escribo de Barbería Charlie para confirmar tu cita del ${fecha} a las ${hora} con ${nombreBarbero}.`;
@@ -116,14 +120,23 @@ export default function TurnosAdmin() {
                     </span>
                   </div>
                   <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
-                    <a 
-                      href={`https://wa.me/${telLimpio}?text=${encodeURIComponent(mensajeWhatsApp)}`} 
-                      target="_blank" 
-                      rel="noopener noreferrer" 
-                      className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-6 rounded-xl text-xs text-center shadow-lg shadow-green-100 transition-colors"
-                    >
-                      WHATSAPP
-                    </a>
+                    {telLimpio ? (
+                      <a 
+                        href={`https://api.whatsapp.com/send?phone=${telLimpio}&text=${encodeURIComponent(mensajeWhatsApp)}`} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="flex-1 md:flex-none bg-[#25D366] hover:bg-[#128C7E] text-white font-bold py-3 px-6 rounded-xl text-xs text-center shadow-lg shadow-green-100 transition-colors"
+                      >
+                        WHATSAPP
+                      </a>
+                    ) : (
+                      <button 
+                        onClick={() => alert("Este cliente no tiene un número de teléfono registrado.")}
+                        className="flex-1 md:flex-none bg-slate-200 text-slate-500 font-bold py-3 px-6 rounded-xl text-xs text-center cursor-not-allowed"
+                      >
+                        SIN NÚMERO
+                      </button>
+                    )}
                     <button onClick={() => eliminarTurno(t.id, nombre)} className="p-3 bg-slate-100 text-slate-500 hover:text-red-600 hover:bg-red-50 rounded-xl border border-slate-200 transition-colors">🗑️</button>
                   </div>
                 </div>
