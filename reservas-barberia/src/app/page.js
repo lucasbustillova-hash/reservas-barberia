@@ -23,11 +23,29 @@ export default function Home() {
   const [cargando, setCargando] = useState(false)
   const [ticket, setTicket] = useState(null)
 
+  // DICCIONARIO DE ALMUERZOS: Ajustado a horarios reales
+  const ALMUERZOS_BARBEROS = {
+    'Charlie': ['11:45'],     // Come de 11:45 a 12:30
+    'Barbero 2': ['12:30'],   // Come de 12:30 a 1:15
+    'Barbero 3': ['13:15'],   // Come de 1:15 a 2:00
+    'Barbero 4': ['11:45']    // Come con Charlie en el primer turno
+  };
+
   const generarHorarios = () => {
     const horarios = []
     let h = 8, m = 0
+    
+    // Leemos qué barbero eligió el cliente y buscamos su hora de almuerzo.
+    const horasBloqueadas = ALMUERZOS_BARBEROS[formData.barbero] || []
+
     while (h < 17 || (h === 17 && m === 0)) {
-      horarios.push(`${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`)
+      const horaFormateada = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+      
+      // Solo agregamos el botón si la hora NO está en la lista negra de ESTE barbero
+      if (!horasBloqueadas.includes(horaFormateada)) {
+        horarios.push(horaFormateada)
+      }
+      
       m += 45
       if (m >= 60) { h++; m -= 60 }
     }
@@ -78,8 +96,8 @@ export default function Home() {
       return; 
     }
 
-    // 2. NUEVA BARRERA: Validar que el teléfono tenga al menos 8 números reales
-    const telLimpio = formData.cliente_telefono.replace(/\D/g, ''); // Quita todo lo que no sea número
+    // 2. Validar que el teléfono tenga al menos 8 números reales
+    const telLimpio = formData.cliente_telefono.replace(/\D/g, ''); 
     if (telLimpio.length < 8) {
       setMensaje('⚠️ Por favor ingresa un número de WhatsApp válido (8 dígitos)');
       return;
