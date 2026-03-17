@@ -1,12 +1,15 @@
 'use client'
 import { useEffect, useState } from 'react'
-import { useParams } from 'next/navigation' // NUEVO: Para leer el negocio de la URL
-import { supabase } from '../../../lib/supabase' // ACTUALIZADO: Le agregamos un ../ extra por la ruta
+import { useParams, useRouter } from 'next/navigation'
+import { supabase } from '../../../lib/supabase'
 
 export default function TurnosAdmin() {
   const params = useParams()
-  const slug = params.slug // Atrapa si estamos en /charlie/turnos o /salon/turnos
+  const router = useRouter()
+  const slug = params.slug
 
+  // ESTADOS DE SEGURIDAD Y DATOS
+  const [autorizado, setAutorizado] = useState(false)
   const [negocio, setNegocio] = useState(null)
   const [turnos, setTurnos] = useState([])
   const [loading, setLoading] = useState(true)
@@ -24,7 +27,33 @@ export default function TurnosAdmin() {
   const [filtroFecha, setFiltroFecha] = useState(getHoy())
   const nombresBarberos = ['Todos', 'Charlie', 'Barbero 2', 'Barbero 3', 'Barbero 4']
 
-  // CARGAR DATOS CUANDO LEE LA URL
+  // ==========================================
+  // FUNCIÓN PARA CERRAR SESIÓN (NUEVA)
+  // ==========================================
+  const cerrarSesion = async () => {
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
+
+  // ==========================================
+  // 1. EL GUARDIA DE SEGURIDAD
+  // ==========================================
+  useEffect(() => {
+    const verificarSesion = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      
+      if (!session) {
+        router.push('/login')
+      } else {
+        setAutorizado(true)
+      }
+    }
+    verificarSesion()
+  }, [router])
+
+  // ==========================================
+  // 2. CARGAR DATOS
+  // ==========================================
   useEffect(() => {
     if (slug) cargarDatosYTurnos()
   }, [slug])
@@ -32,7 +61,6 @@ export default function TurnosAdmin() {
   async function cargarDatosYTurnos() {
     setLoading(true)
     try {
-      // 1. Buscar de qué negocio es este panel
       const { data: negocioData, error: errorNegocio } = await supabase
         .from('negocios')
         .select('*')
@@ -46,11 +74,10 @@ export default function TurnosAdmin() {
       
       setNegocio(negocioData);
 
-      // 2. MAGIA SaaS: Buscar SOLO los turnos de este negocio
       let { data: turnosData, error: errorTurnos } = await supabase
         .from('reservas')
         .select('*')
-        .eq('negocio_id', negocioData.id) // El filtro de oro
+        .eq('negocio_id', negocioData.id)
         .order('fecha_hora', { ascending: true })
       
       if (errorTurnos) {
@@ -83,17 +110,33 @@ export default function TurnosAdmin() {
     return coincideBarbero && coincideFecha;
   })
 
-  // PANTALLAS DE CARGA Y ERROR
+  // ==========================================
+  // 3. PANTALLAS DE CARGA Y ERROR
+  // ==========================================
+  if (!autorizado) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold tracking-widest animate-pulse">VERIFICANDO SEGURIDAD 🔐...</div>
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold tracking-widest animate-pulse">CARGANDO AGENDA...</div>
   if (!negocio) return <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bold text-red-500">❌ Local no encontrado</div>
 
+  // ==========================================
+  // 4. DISEÑO PRINCIPAL
+  // ==========================================
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 font-sans">
       <div className="max-w-4xl mx-auto">
         
         <header className="mb-8 bg-white p-6 rounded-[24px] shadow-sm border border-slate-200 flex flex-col gap-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-100 pb-6">
-            <h1 className="text-3xl font-black tracking-tighter uppercase">AGENDA <span className="text-yellow-600">{negocio.nombre}</span></h1>
+            
+            {/* AQUÍ ESTÁ EL TÍTULO Y EL BOTÓN JUNTOS */}
+            <div className="flex flex-col md:flex-row items-center gap-4">
+              <h1 className="text-3xl font-black tracking-tighter uppercase">AGENDA <span className="text-yellow-600">{negocio.nombre}</span></h1>
+              <button 
+                onClick={cerrarSesion} 
+                className="text-xs font-bold text-red-500 border border-red-100 bg-red-50 px-4 py-2 rounded-xl hover:bg-red-100 hover:border-red-200 transition-all shadow-sm"
+              >
+                Cerrar Sesión 🔒
+              </button>
+            </div>
             
             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
               <span className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-2">FECHA:</span>
