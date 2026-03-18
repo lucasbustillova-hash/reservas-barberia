@@ -1,28 +1,20 @@
 "use client"
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation' // NUEVO: Para leer la URL
-import { supabase } from '../../lib/supabase' // ACTUALIZADO: Agregamos un ../ por la nueva carpeta
-
-const LISTA_BARBEROS = [
-  { nombre: 'Charlie', foto: '/charlie.png' },
-  { nombre: 'Barbero 2', foto: 'https://ui-avatars.com/api/?name=Barbero+2&background=random' },
-  { nombre: 'Barbero 3', foto: 'https://ui-avatars.com/api/?name=Barbero+3&background=random' },
-  { nombre: 'Barbero 4', foto: 'https://ui-avatars.com/api/?name=Barbero+4&background=random' }
-];
+import { useParams } from 'next/navigation' 
+import { supabase } from '../../lib/supabase' 
 
 export default function FormularioNegocio() {
   const params = useParams()
-  const slug = params.slug // Captura "charlie" o "salon-rosa" de la URL
+  const slug = params.slug 
 
-  // Estados del Negocio
   const [negocio, setNegocio] = useState(null)
+  const [barberosActivos, setBarberosActivos] = useState([]) 
   const [cargandoNegocio, setCargandoNegocio] = useState(true)
 
-  // Estados de la Reserva
   const [formData, setFormData] = useState({
     cliente_nombre: '',
     cliente_telefono: '',
-    barbero: LISTA_BARBEROS[0].nombre, 
+    barbero: '', 
     servicio: 'Corte Clásico',
     fecha: '',
     hora: ''
@@ -39,19 +31,43 @@ export default function FormularioNegocio() {
     'Barbero 4': ['11:45']
   };
 
-  // 1. CARGAR DATOS DEL NEGOCIO AL ENTRAR
   useEffect(() => {
-    const cargarDatosNegocio = async () => {
-      const { data } = await supabase
+    const cargarDatos = async () => {
+      const { data: negocioData } = await supabase
         .from('negocios')
         .select('*')
         .eq('slug', slug)
         .single()
       
-      if (data) setNegocio(data)
+      if (negocioData) {
+        setNegocio(negocioData)
+
+        const { data: empleadosData } = await supabase
+          .from('empleados')
+          .select('*')
+          .eq('negocio_id', negocioData.id)
+          .eq('activo', true) 
+        
+        if (empleadosData && empleadosData.length > 0) {
+          // MAGIA BLINDADA: Ignora mayúsculas y espacios fantasmas
+          const barberosOrdenados = empleadosData.sort((a, b) => {
+            const nomA = a.nombre.trim().toLowerCase();
+            const nomB = b.nombre.trim().toLowerCase();
+            
+            if (nomA === 'charlie') return -1;
+            if (nomB === 'charlie') return 1;
+            return a.nombre.localeCompare(b.nombre);
+          });
+
+          setBarberosActivos(barberosOrdenados)
+          setFormData(prev => ({ ...prev, barbero: barberosOrdenados[0].nombre }))
+        } else {
+          setBarberosActivos([]) 
+        }
+      }
       setCargandoNegocio(false)
     }
-    if (slug) cargarDatosNegocio()
+    if (slug) cargarDatos()
   }, [slug])
 
   const generarHorarios = () => {
@@ -70,7 +86,6 @@ export default function FormularioNegocio() {
 
   const horariosDisponibles = generarHorarios()
 
-  // 2. BUSCAR HORAS OCUPADAS (AHORA FILTRADO POR NEGOCIO)
   useEffect(() => {
     if (formData.fecha && formData.barbero && negocio) {
       const consultarOcupados = async () => {
@@ -78,7 +93,7 @@ export default function FormularioNegocio() {
           .from('reservas')
           .select('fecha_hora')
           .eq('barbero', formData.barbero)
-          .eq('negocio_id', negocio.id) // MAGIA: Solo busca choques en este local
+          .eq('negocio_id', negocio.id) 
         
         if (data) {
           const ocupadas = data
@@ -102,7 +117,6 @@ export default function FormularioNegocio() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    
     if (!formData.hora) { setMensaje('⚠️ Por favor elige una hora'); return; }
 
     const telLimpio = formData.cliente_telefono.replace(/\D/g, ''); 
@@ -115,7 +129,7 @@ export default function FormularioNegocio() {
     const codigoGenerado = 'CH-' + Math.random().toString(36).substring(2, 6).toUpperCase()
 
     const dataParaEnviar = {
-      negocio_id: negocio.id, // MAGIA: Asigna la reserva a este local
+      negocio_id: negocio.id,
       cliente_nombre: formData.cliente_nombre,
       cliente_telefono: formData.cliente_telefono,
       barbero: formData.barbero,
@@ -140,24 +154,9 @@ export default function FormularioNegocio() {
     setCargando(false)
   }
 
-  // PANTALLA DE CARGA Y ERROR
-  if (cargandoNegocio) {
-    return <div className="min-h-screen flex items-center justify-center bg-gray-100 font-sans font-black tracking-widest text-gray-400">CARGANDO...</div>
-  }
+  if (cargandoNegocio) return <div className="min-h-screen flex items-center justify-center bg-gray-100 font-sans font-black tracking-widest text-gray-400">CARGANDO...</div>
+  if (!negocio) return <div className="min-h-screen flex items-center justify-center bg-gray-100 font-bold text-red-500">❌ Local no encontrado</div>
 
-  if (!negocio) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-        <div className="bg-white p-8 rounded-2xl shadow-xl text-center max-w-sm w-full">
-          <span className="text-4xl mb-4 block">🏪</span>
-          <h1 className="text-xl font-black text-gray-900 uppercase">Negocio no encontrado</h1>
-          <p className="text-gray-500 text-sm mt-2 font-medium">Revisa que el enlace sea correcto.</p>
-        </div>
-      </div>
-    )
-  }
-
-  // EL FORMULARIO ORIGINAL (Mismo código visual que antes)
   return (
     <main className="min-h-screen bg-gray-100 p-4 flex items-center justify-center font-sans">
       <div className="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md border border-gray-100 relative overflow-hidden">
@@ -187,47 +186,62 @@ export default function FormularioNegocio() {
           </div>
         ) : (
           <>
-            {/* AQUÍ ESTÁ LA MAGIA: El título ahora lee el nombre de la base de datos */}
             <h1 className="text-2xl font-black text-center text-gray-900 mb-6 uppercase tracking-tight">{negocio.nombre}</h1>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div><label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Tu Nombre</label><input type="text" name="cliente_nombre" value={formData.cliente_nombre} onChange={handleChange} required className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none text-black font-bold placeholder:text-gray-400" placeholder="Ej. Lucas" /></div>
-              <div><label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">WhatsApp</label><input type="tel" name="cliente_telefono" value={formData.cliente_telefono} onChange={handleChange} required className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none text-black font-bold placeholder:text-gray-400" placeholder="7000-0000" /></div>
-              <div>
-                <label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Servicio</label>
-                <select name="servicio" value={formData.servicio} onChange={handleChange} className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-black font-bold">
-                  <option value="Corte Clásico">Corte Clásico</option>
-                  <option value="Corte + Barba">Corte + Barba</option>
-                  <option value="Solo Barba">Solo Barba</option>
-                  <option value="Corte para Niños">Corte para Niños 👶</option>
-                </select>
+            
+            {barberosActivos.length === 0 ? (
+              <div className="bg-red-50 p-6 rounded-xl border border-red-200 text-center">
+                <span className="text-3xl block mb-2">🛑</span>
+                <h3 className="font-black text-red-700 uppercase mb-1">Local Cerrado</h3>
+                <p className="text-sm text-red-600 font-bold">Por el momento no hay barberos disponibles. Intenta más tarde.</p>
               </div>
-              <div>
-                <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1 text-center">Selecciona tu Barbero</label>
-                <div className="flex gap-4 justify-center">
-                  {LISTA_BARBEROS.map((b) => (
-                    <div key={b.nombre} onClick={() => seleccionarBarbero(b.nombre)} className={`flex flex-col items-center cursor-pointer p-2 rounded-2xl border-2 transition-all ${formData.barbero === b.nombre ? 'border-blue-600 bg-blue-50 shadow-md scale-105' : 'border-gray-100 hover:bg-gray-50'}`}>
-                      <img src={b.foto} className="w-16 h-16 rounded-full object-cover mb-2 border-2 border-white shadow-sm" alt={b.nombre} />
-                      <span className="text-[10px] font-black uppercase text-gray-800 text-center">{b.nombre}</span>
-                    </div>
-                  ))}
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                <div><label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Tu Nombre</label><input type="text" name="cliente_nombre" value={formData.cliente_nombre} onChange={handleChange} required className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none text-black font-bold placeholder:text-gray-400" placeholder="Ej. Lucas" /></div>
+                <div><label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">WhatsApp</label><input type="tel" name="cliente_telefono" value={formData.cliente_telefono} onChange={handleChange} required className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none text-black font-bold placeholder:text-gray-400" placeholder="7000-0000" /></div>
+                <div>
+                  <label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Servicio</label>
+                  <select name="servicio" value={formData.servicio} onChange={handleChange} className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-black font-bold">
+                    <option value="Corte Clásico">Corte Clásico</option>
+                    <option value="Corte + Barba">Corte + Barba</option>
+                    <option value="Solo Barba">Solo Barba</option>
+                    <option value="Corte para Niños">Corte para Niños 👶</option>
+                  </select>
                 </div>
-              </div>
-              <div><label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Día del corte</label><input type="date" name="fecha" value={formData.fecha} onChange={handleChange} required className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-black font-bold" /></div>
-              {formData.fecha && (
-                <div className="animate-in fade-in zoom-in duration-300">
-                  <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1">Horas disponibles</label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {horariosDisponibles.map((h) => {
-                      const estaOcupada = horasOcupadas.includes(h)
-                      return (
-                        <button key={h} type="button" disabled={estaOcupada} onClick={() => setFormData({ ...formData, hora: h })} className={`py-2 text-sm font-black rounded-xl border-2 transition-all ${estaOcupada ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60' : formData.hora === h ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200/50 scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600'}`}>{h}</button>
-                      )
-                    })}
+                
+                <div>
+                  <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1 text-center">Selecciona tu Barbero</label>
+                  <div className="flex gap-4 justify-center flex-wrap">
+                    {barberosActivos.map((b) => (
+                      <div key={b.id} onClick={() => seleccionarBarbero(b.nombre)} className={`flex flex-col items-center cursor-pointer p-2 rounded-2xl border-2 transition-all ${formData.barbero === b.nombre ? 'border-blue-600 bg-blue-50 shadow-md scale-105' : 'border-gray-100 hover:bg-gray-50'}`}>
+                        {/* PARCHE BLINDADO: Compara quitando espacios y en minúsculas */}
+                        <img 
+                          src={b.nombre.trim().toLowerCase() === 'charlie' ? '/charlie.png' : `https://ui-avatars.com/api/?name=${b.nombre.replace(' ', '+')}&background=random`} 
+                          className="w-16 h-16 rounded-full object-cover mb-2 border-2 border-white shadow-sm" 
+                          alt={b.nombre} 
+                        />
+                        <span className="text-[10px] font-black uppercase text-gray-800 text-center">{b.nombre}</span>
+                      </div>
+                    ))}
                   </div>
                 </div>
-              )}
-              <button type="submit" disabled={cargando} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all uppercase tracking-widest text-sm active:scale-95 disabled:bg-gray-400 mt-6">{cargando ? 'PROCESANDO...' : 'Confirmar Reserva'}</button>
-            </form>
+                
+                <div><label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Día del corte</label><input type="date" name="fecha" value={formData.fecha} onChange={handleChange} required className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-black font-bold" /></div>
+                {formData.fecha && (
+                  <div className="animate-in fade-in zoom-in duration-300">
+                    <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1">Horas disponibles</label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {horariosDisponibles.map((h) => {
+                        const estaOcupada = horasOcupadas.includes(h)
+                        return (
+                          <button key={h} type="button" disabled={estaOcupada} onClick={() => setFormData({ ...formData, hora: h })} className={`py-2 text-sm font-black rounded-xl border-2 transition-all ${estaOcupada ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60' : formData.hora === h ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200/50 scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600'}`}>{h}</button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+                <button type="submit" disabled={cargando} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all uppercase tracking-widest text-sm active:scale-95 disabled:bg-gray-400 mt-6">{cargando ? 'PROCESANDO...' : 'Confirmar Reserva'}</button>
+              </form>
+            )}
             {mensaje && <div className={`mt-6 p-4 text-center font-black rounded-xl border-2 text-sm ${mensaje.includes('✅') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>{mensaje}</div>}
           </>
         )}
