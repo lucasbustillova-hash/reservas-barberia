@@ -12,13 +12,15 @@ export default function TurnosAdmin() {
   const [negocio, setNegocio] = useState(null)
   const [turnos, setTurnos] = useState([])
   const [empleados, setEmpleados] = useState([]) 
+  const [ausencias, setAusencias] = useState([]) // NUEVO ESTADO PARA AUSENCIAS
   const [loading, setLoading] = useState(true)
   
-  // MAGIA VISUAL: Estado para guardar el ID de la cita que acaba de entrar
   const [idResaltado, setIdResaltado] = useState(null)
-  
   const [filtroBarbero, setFiltroBarbero] = useState('Todos')
   
+  // FORMULARIO PARA BLOQUEAR FECHAS
+  const [formAusencia, setFormAusencia] = useState({ barbero: '', fecha: '' })
+
   const getHoy = () => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -31,7 +33,7 @@ export default function TurnosAdmin() {
     router.push('/login')
   }
 
-  // 1. EL GUARDIA DE SEGURIDAD
+  // 1. VERIFICAR SEGURIDAD
   useEffect(() => {
     const verificarSesion = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -47,33 +49,33 @@ export default function TurnosAdmin() {
   }, [slug])
 
   const cargarSoloTurnos = async (idNegocio) => {
-    const { data } = await supabase
-      .from('reservas')
-      .select('*')
-      .eq('negocio_id', idNegocio)
-      .order('fecha_hora', { ascending: true })
+    const { data } = await supabase.from('reservas').select('*').eq('negocio_id', idNegocio).order('fecha_hora', { ascending: true })
     if (data) setTurnos(data)
+  }
+
+  const cargarAusencias = async (idNegocio) => {
+    const { data } = await supabase.from('ausencias').select('*').eq('negocio_id', idNegocio).order('fecha', { ascending: true })
+    if (data) setAusencias(data)
   }
 
   async function cargarDatosPrincipal() {
     setLoading(true)
     try {
-      const { data: negocioData, error: errorNegocio } = await supabase
-        .from('negocios').select('*').eq('slug', slug).single()
-      
-      if (errorNegocio || !negocioData) {
-        setLoading(false); return;
-      }
+      const { data: negocioData, error: errorNegocio } = await supabase.from('negocios').select('*').eq('slug', slug).single()
+      if (errorNegocio || !negocioData) { setLoading(false); return; }
       setNegocio(negocioData);
 
       await cargarSoloTurnos(negocioData.id);
+      await cargarAusencias(negocioData.id);
 
-      const { data: empleadosData } = await supabase
-        .from('empleados').select('*').eq('negocio_id', negocioData.id).order('nombre', { ascending: true })
-      setEmpleados(empleadosData || [])
-
+      const { data: empleadosData } = await supabase.from('empleados').select('*').eq('negocio_id', negocioData.id).order('nombre', { ascending: true })
+      if (empleadosData) {
+        setEmpleados(empleadosData)
+        // Setear el primer barbero por defecto en el formulario de ausencias
+        if (empleadosData.length > 0) setFormAusencia(prev => ({ ...prev, barbero: empleadosData[0].nombre }))
+      }
     } catch (err) {
-      console.error("Error fatal:", err)
+      console.error("Error:", err)
     } finally {
       setLoading(false)
     }
@@ -84,41 +86,18 @@ export default function TurnosAdmin() {
   // ==========================================
   useEffect(() => {
     if (!negocio) return; 
-
-    const canalReservas = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        { 
-          event: '*', 
-          schema: 'public', 
-          table: 'reservas' 
-        },
+    const canalReservas = supabase.channel('schema-db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' },
         (payload) => {
-          // Si el evento fue un INSERT (cita nueva), capturamos su ID
           if (payload.eventType === 'INSERT') {
             const nuevoId = payload.new.id;
-            
-            // 1. Resaltamos la cita nueva
             setIdResaltado(nuevoId);
-            
-            // 2. Programamos para quitar el resaltado en 5 segundos
-            setTimeout(() => {
-              setIdResaltado(null);
-            }, 5000); 
+            setTimeout(() => { setIdResaltado(null); }, 5000); 
           }
-
-          // Recargamos los turnos de todas formas
           cargarSoloTurnos(negocio.id);
         }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(canalReservas);
-    }
+      ).subscribe();
+    return () => { supabase.removeChannel(canalReservas); }
   }, [negocio]);
-  // ==========================================
 
   // 3. FUNCIONES DE ACCIÓN
   async function eliminarTurno(id, nombre) {
@@ -130,11 +109,29 @@ export default function TurnosAdmin() {
   async function toggleEstadoEmpleado(empleado) {
     const nuevoEstado = !empleado.activo;
     setEmpleados(empleados.map(emp => emp.id === empleado.id ? { ...emp, activo: nuevoEstado } : emp));
-    const { error } = await supabase.from('empleados').update({ activo: nuevoEstado }).eq('id', empleado.id);
-    if (error) {
-      alert("Hubo un error de conexión, intenta de nuevo.");
-      cargarDatosPrincipal(); 
+    await supabase.from('empleados').update({ activo: nuevoEstado }).eq('id', empleado.id);
+  }
+
+  // AGREGAR DÍA LIBRE
+  async function agregarAusencia(e) {
+    e.preventDefault();
+    if (!formAusencia.barbero || !formAusencia.fecha) return;
+    
+    const nueva = { negocio_id: negocio.id, barbero: formAusencia.barbero, fecha: formAusencia.fecha };
+    const { data, error } = await supabase.from('ausencias').insert([nueva]).select();
+    
+    if (!error && data) {
+      setAusencias([...ausencias, data[0]]);
+      setFormAusencia({ ...formAusencia, fecha: '' }); // Limpiar fecha
+    } else {
+      alert("Hubo un error al guardar el día libre.");
     }
+  }
+
+  // ELIMINAR DÍA LIBRE
+  async function eliminarAusencia(id) {
+    await supabase.from('ausencias').delete().eq('id', id);
+    setAusencias(ausencias.filter(a => a.id !== id));
   }
 
   // 4. FILTROS
@@ -184,16 +181,57 @@ export default function TurnosAdmin() {
               {empleados.map(emp => (
                 <div key={emp.id} className={`flex items-center gap-3 px-4 py-2 rounded-xl border transition-all ${emp.activo ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
                   <span className={`text-sm font-bold ${emp.activo ? 'text-green-700' : 'text-red-700'}`}>{emp.nombre}</span>
-                  <button 
-                    onClick={() => toggleEstadoEmpleado(emp)}
-                    className={`text-[10px] px-3 py-1.5 rounded-lg font-black uppercase tracking-widest transition-all active:scale-95 ${emp.activo ? 'bg-green-600 text-white hover:bg-green-700 shadow-md shadow-green-200' : 'bg-red-500 text-white hover:bg-red-600 shadow-md shadow-red-200'}`}
-                  >
+                  <button onClick={() => toggleEstadoEmpleado(emp)} className={`text-[10px] px-3 py-1.5 rounded-lg font-black uppercase tracking-widest transition-all active:scale-95 ${emp.activo ? 'bg-green-600 text-white hover:bg-green-700 shadow-md shadow-green-200' : 'bg-red-500 text-white hover:bg-red-600 shadow-md shadow-red-200'}`}>
                     {emp.activo ? 'TRABAJANDO ✅' : 'LIBRE ❌'}
                   </button>
                 </div>
               ))}
             </div>
           </div>
+
+          {/* ========================================================= */}
+          {/* NUEVA SECCIÓN: PROGRAMAR DÍAS LIBRES A FUTURO */}
+          {/* ========================================================= */}
+          <div className="flex flex-col items-center gap-4 border-b border-slate-100 pb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
+            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">📅 Programar Días Libres a Futuro</span>
+            
+            <form onSubmit={agregarAusencia} className="flex flex-col md:flex-row gap-2 w-full max-w-2xl justify-center items-center">
+              <select 
+                value={formAusencia.barbero} 
+                onChange={(e) => setFormAusencia({...formAusencia, barbero: e.target.value})}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 outline-none w-full md:w-auto"
+                required
+              >
+                {empleados.map(emp => <option key={emp.id} value={emp.nombre}>{emp.nombre}</option>)}
+              </select>
+              <input 
+                type="date" 
+                value={formAusencia.fecha} 
+                onChange={(e) => setFormAusencia({...formAusencia, fecha: e.target.value})}
+                className="px-4 py-2 rounded-xl border border-slate-200 text-sm font-bold text-slate-700 outline-none w-full md:w-auto"
+                required
+              />
+              <button type="submit" className="bg-slate-900 text-white font-black text-xs px-6 py-3 rounded-xl hover:bg-slate-800 transition-all uppercase tracking-widest w-full md:w-auto shadow-md">
+                Bloquear Día
+              </button>
+            </form>
+
+            {ausencias.length > 0 && (
+              <div className="flex gap-2 flex-wrap justify-center mt-2 w-full">
+                {ausencias.map(ausencia => {
+                  const [anio, mes, dia] = ausencia.fecha.split('-');
+                  return (
+                    <div key={ausencia.id} className="flex items-center gap-2 bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-sm">
+                      <span className="text-[10px] font-black text-slate-500 uppercase">{ausencia.barbero}</span>
+                      <span className="text-xs font-bold text-red-500">{dia}/{mes}/{anio}</span>
+                      <button type="button" onClick={() => eliminarAusencia(ausencia.id)} className="text-slate-300 hover:text-red-500 ml-1">🗑️</button>
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+          {/* ========================================================= */}
 
           <div className="flex flex-col items-center gap-2 pt-2">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filtrar Agenda por Barbero</span>
@@ -236,15 +274,7 @@ export default function TurnosAdmin() {
                 : `Hola ${nombre}, te escribo de ${negocio.nombre} para confirmar tu cita del ${fecha} a las ${hora} con ${nombreBarbero}.`;
 
               return (
-                <div 
-                  key={t.id} 
-                  className={`
-                    p-6 flex flex-col md:flex-row items-center gap-6 transition-all duration-1000 ease-out rounded-[24px]
-                    ${idResaltado === t.id 
-                      ? 'bg-yellow-50 border-2 border-yellow-400 ring-4 ring-yellow-200 shadow-lg scale-[1.02]' 
-                      : 'bg-white border border-slate-200 shadow-sm hover:shadow-md'}
-                  `}
-                >
+                <div key={t.id} className={`p-6 flex flex-col md:flex-row items-center gap-6 transition-all duration-1000 ease-out rounded-[24px] ${idResaltado === t.id ? 'bg-yellow-50 border-2 border-yellow-400 ring-4 ring-yellow-200 shadow-lg scale-[1.02]' : 'bg-white border border-slate-200 shadow-sm hover:shadow-md'}`}>
                   <div className="text-center md:text-left md:border-r border-slate-200 md:pr-8 min-w-[120px]">
                     <div className="text-4xl font-black text-slate-900 tracking-tighter">{hora}</div>
                     <div className="text-sm font-bold text-slate-400 mt-1">{fecha}</div>
@@ -254,11 +284,8 @@ export default function TurnosAdmin() {
                     <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight">{nombre}</h3>
                     <div className="flex gap-2 justify-center md:justify-start mt-3 flex-wrap">
                       <span className="inline-block bg-slate-50 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">✂️ {t.servicio || 'Servicio'}</span>
-                      {/* AQUÍ ESTÁ EL PARCHE: Mostramos el código de reserva si existe */}
                       {t.codigo && (
-                        <span className="inline-block bg-blue-50 text-blue-700 text-xs font-black px-3 py-1.5 rounded-lg border border-blue-200 uppercase tracking-widest shadow-sm">
-                          #{t.codigo}
-                        </span>
+                        <span className="inline-block bg-blue-50 text-blue-700 text-xs font-black px-3 py-1.5 rounded-lg border border-blue-200 uppercase tracking-widest shadow-sm">#{t.codigo}</span>
                       )}
                     </div>
                   </div>

@@ -9,6 +9,7 @@ export default function FormularioNegocio() {
 
   const [negocio, setNegocio] = useState(null)
   const [barberosActivos, setBarberosActivos] = useState([]) 
+  const [ausencias, setAusencias] = useState([]) // NUEVO: Estado para guardar días libres
   const [cargandoNegocio, setCargandoNegocio] = useState(true)
 
   const [formData, setFormData] = useState({
@@ -33,15 +34,13 @@ export default function FormularioNegocio() {
 
   useEffect(() => {
     const cargarDatos = async () => {
-      const { data: negocioData } = await supabase
-        .from('negocios').select('*').eq('slug', slug).single()
+      const { data: negocioData } = await supabase.from('negocios').select('*').eq('slug', slug).single()
       
       if (negocioData) {
         setNegocio(negocioData)
 
-        const { data: empleadosData } = await supabase
-          .from('empleados').select('*').eq('negocio_id', negocioData.id).eq('activo', true) 
-        
+        // Cargamos barberos
+        const { data: empleadosData } = await supabase.from('empleados').select('*').eq('negocio_id', negocioData.id).eq('activo', true) 
         if (empleadosData && empleadosData.length > 0) {
           const barberosOrdenados = empleadosData.sort((a, b) => {
             const nomA = a.nombre.trim().toLowerCase();
@@ -55,6 +54,10 @@ export default function FormularioNegocio() {
         } else {
           setBarberosActivos([]) 
         }
+
+        // Cargamos las ausencias del negocio
+        const { data: ausenciasData } = await supabase.from('ausencias').select('*').eq('negocio_id', negocioData.id)
+        if (ausenciasData) setAusencias(ausenciasData)
       }
       setCargandoNegocio(false)
     }
@@ -76,12 +79,13 @@ export default function FormularioNegocio() {
 
   const horariosDisponibles = generarHorarios()
 
+  // VERIFICAR SI EL DÍA ELEGIDO ES LIBRE
+  const esDiaLibre = ausencias.some(a => a.barbero === formData.barbero && a.fecha === formData.fecha);
+
   useEffect(() => {
-    if (formData.fecha && formData.barbero && negocio) {
+    if (formData.fecha && formData.barbero && negocio && !esDiaLibre) {
       const consultarOcupados = async () => {
-        const { data } = await supabase
-          .from('reservas').select('fecha_hora').eq('barbero', formData.barbero).eq('negocio_id', negocio.id) 
-        
+        const { data } = await supabase.from('reservas').select('fecha_hora').eq('barbero', formData.barbero).eq('negocio_id', negocio.id) 
         if (data) {
           const ocupadas = data
             .filter(d => d.fecha_hora && d.fecha_hora.includes(formData.fecha))
@@ -95,10 +99,10 @@ export default function FormularioNegocio() {
       }
       consultarOcupados()
     }
-  }, [formData.fecha, formData.barbero, negocio])
+  }, [formData.fecha, formData.barbero, negocio, esDiaLibre])
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
-  const seleccionarBarbero = (nombre) => setFormData({ ...formData, barbero: nombre, hora: '' })
+  const seleccionarBarbero = (nombre) => setFormData({ ...formData, barbero: nombre, hora: '', fecha: '' }) // Limpia fecha y hora al cambiar barbero
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -136,30 +140,22 @@ export default function FormularioNegocio() {
       // ==========================================
       // MAGIA WHATSAPP: ENVIAR NOTIFICACIÓN AL ADMIN
       // ==========================================
-      const numeroAdmin = "50376885349"; 
-      const apiKeyBot = "3741282";       
+      const numeroAdmin = "50376885349"; // <-- ¡Pon aquí tu número real!
+      const apiKeyBot = "3741282";       // <-- ¡Tu clave secreta de CallMeBot!
 
-      // 1. Arreglamos el formato de la fecha (De AAAA-MM-DD a DD/MM/AAAA)
       const [anio, mes, dia] = formData.fecha.split('-');
       const fechaLocal = `${dia}/${mes}/${anio}`;
 
-      // 2. Función para quitar tildes elegantemente (Para que el bot no borre letras)
       const limpiarTildes = (texto) => {
         return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
 
-      // 3. Armamos el mensaje con la fecha nueva
       const mensajeCrudo = `¡NUEVA CITA EN TURNOPRO! ✂️📅\n\n*Cliente:* ${formData.cliente_nombre}\n*Servicio:* ${formData.servicio}\n*Barbero:* ${formData.barbero}\n*Fecha:* ${fechaLocal} a las ${formData.hora}\n*Tel:* ${formData.cliente_telefono}`;
-      
-      // 4. Limpiamos las tildes antes de enviarlo
       const textoMensaje = limpiarTildes(mensajeCrudo);
       
       try {
         await fetch(`https://api.callmebot.com/whatsapp.php?phone=${numeroAdmin}&text=${encodeURIComponent(textoMensaje)}&apikey=${apiKeyBot}`);
-        console.log("WhatsApp enviado al admin con éxito");
-      } catch (err) {
-        console.log("Error enviando WhatsApp al admin", err);
-      }
+      } catch (err) {}
       // ==========================================
 
       setTicket({ ...formData, codigo: codigoGenerado })
@@ -236,20 +232,35 @@ export default function FormularioNegocio() {
                 </div>
                 
                 <div><label className="block text-gray-900 text-xs font-black uppercase mb-1 ml-1">Día del corte</label><input type="date" name="fecha" value={formData.fecha} onChange={handleChange} required className="w-full px-4 py-2 border-2 border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-600 outline-none bg-white text-black font-bold" /></div>
+                
                 {formData.fecha && (
                   <div className="animate-in fade-in zoom-in duration-300">
-                    <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1">Horas disponibles</label>
-                    <div className="grid grid-cols-3 gap-2">
-                      {horariosDisponibles.map((h) => {
-                        const estaOcupada = horasOcupadas.includes(h)
-                        return (
-                          <button key={h} type="button" disabled={estaOcupada} onClick={() => setFormData({ ...formData, hora: h })} className={`py-2 text-sm font-black rounded-xl border-2 transition-all ${estaOcupada ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60' : formData.hora === h ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200/50 scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600'}`}>{h}</button>
-                        )
-                      })}
-                    </div>
+                    {esDiaLibre ? (
+                      <div className="bg-red-50 p-4 rounded-xl border border-red-200 text-center shadow-sm">
+                        <span className="text-3xl block mb-2">🏖️</span>
+                        <h3 className="font-black text-red-700 uppercase mb-1">Día Libre</h3>
+                        <p className="text-xs text-red-600 font-bold leading-relaxed">{formData.barbero} no estará disponible en esta fecha. Por favor elige otro día u otro barbero para tu cita.</p>
+                      </div>
+                    ) : (
+                      <>
+                        <label className="block text-gray-900 text-xs font-black uppercase mb-2 ml-1">Horas disponibles</label>
+                        <div className="grid grid-cols-3 gap-2">
+                          {horariosDisponibles.map((h) => {
+                            const estaOcupada = horasOcupadas.includes(h)
+                            return (
+                              <button key={h} type="button" disabled={estaOcupada} onClick={() => setFormData({ ...formData, hora: h })} className={`py-2 text-sm font-black rounded-xl border-2 transition-all ${estaOcupada ? 'bg-gray-100 text-gray-400 border-gray-200 line-through opacity-60' : formData.hora === h ? 'bg-blue-600 text-white border-blue-600 shadow-lg shadow-blue-200/50 scale-105' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400 hover:text-blue-600'}`}>{h}</button>
+                            )
+                          })}
+                        </div>
+                      </>
+                    )}
                   </div>
                 )}
-                <button type="submit" disabled={cargando} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all uppercase tracking-widest text-sm active:scale-95 disabled:bg-gray-400 mt-6">{cargando ? 'PROCESANDO...' : 'Confirmar Reserva'}</button>
+
+                {/* BOTÓN DE ENVIAR: Solo se muestra si NO es día libre */}
+                {!esDiaLibre && (
+                  <button type="submit" disabled={cargando} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all uppercase tracking-widest text-sm active:scale-95 disabled:bg-gray-400 mt-6">{cargando ? 'PROCESANDO...' : 'Confirmar Reserva'}</button>
+                )}
               </form>
             )}
             {mensaje && <div className={`mt-6 p-4 text-center font-black rounded-xl border-2 text-sm ${mensaje.includes('✅') ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'}`}>{mensaje}</div>}
