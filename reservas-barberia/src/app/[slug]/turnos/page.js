@@ -252,7 +252,15 @@ export default function TurnosAdmin() {
                   <div className="flex-1 text-center md:text-left">
                     <p className="text-sm font-black text-blue-600 uppercase tracking-widest mb-1">{nombreBarbero}</p>
                     <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight">{nombre}</h3>
-                    <span className="inline-block mt-3 bg-slate-50 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">✂️ {t.servicio || 'Servicio'}</span>
+                    <div className="flex gap-2 justify-center md:justify-start mt-3 flex-wrap">
+                      <span className="inline-block bg-slate-50 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">✂️ {t.servicio || 'Servicio'}</span>
+                      {/* AQUÍ ESTÁ EL PARCHE: Mostramos el código de reserva si existe */}
+                      {t.codigo && (
+                        <span className="inline-block bg-blue-50 text-blue-700 text-xs font-black px-3 py-1.5 rounded-lg border border-blue-200 uppercase tracking-widest shadow-sm">
+                          #{t.codigo}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
                     {telLimpio ? (
