@@ -34,31 +34,22 @@ export default function FormularioNegocio() {
   useEffect(() => {
     const cargarDatos = async () => {
       const { data: negocioData } = await supabase
-        .from('negocios')
-        .select('*')
-        .eq('slug', slug)
-        .single()
+        .from('negocios').select('*').eq('slug', slug).single()
       
       if (negocioData) {
         setNegocio(negocioData)
 
         const { data: empleadosData } = await supabase
-          .from('empleados')
-          .select('*')
-          .eq('negocio_id', negocioData.id)
-          .eq('activo', true) 
+          .from('empleados').select('*').eq('negocio_id', negocioData.id).eq('activo', true) 
         
         if (empleadosData && empleadosData.length > 0) {
-          // MAGIA BLINDADA: Ignora mayúsculas y espacios fantasmas
           const barberosOrdenados = empleadosData.sort((a, b) => {
             const nomA = a.nombre.trim().toLowerCase();
             const nomB = b.nombre.trim().toLowerCase();
-            
             if (nomA === 'charlie') return -1;
             if (nomB === 'charlie') return 1;
             return a.nombre.localeCompare(b.nombre);
           });
-
           setBarberosActivos(barberosOrdenados)
           setFormData(prev => ({ ...prev, barbero: barberosOrdenados[0].nombre }))
         } else {
@@ -74,7 +65,6 @@ export default function FormularioNegocio() {
     const horarios = []
     let h = 8, m = 0
     const horasBloqueadas = ALMUERZOS_BARBEROS[formData.barbero] || []
-
     while (h < 17 || (h === 17 && m === 0)) {
       const horaFormateada = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
       if (!horasBloqueadas.includes(horaFormateada)) horarios.push(horaFormateada)
@@ -90,18 +80,13 @@ export default function FormularioNegocio() {
     if (formData.fecha && formData.barbero && negocio) {
       const consultarOcupados = async () => {
         const { data } = await supabase
-          .from('reservas')
-          .select('fecha_hora')
-          .eq('barbero', formData.barbero)
-          .eq('negocio_id', negocio.id) 
+          .from('reservas').select('fecha_hora').eq('barbero', formData.barbero).eq('negocio_id', negocio.id) 
         
         if (data) {
           const ocupadas = data
             .filter(d => d.fecha_hora && d.fecha_hora.includes(formData.fecha))
             .map(d => {
-              const parteHora = d.fecha_hora.includes('T') 
-                ? d.fecha_hora.split('T')[1] 
-                : d.fecha_hora.split(' ')[1];
+              const parteHora = d.fecha_hora.includes('T') ? d.fecha_hora.split('T')[1] : d.fecha_hora.split(' ')[1];
               return parteHora ? parteHora.substring(0, 5) : null;
             })
             .filter(Boolean);
@@ -147,6 +132,36 @@ export default function FormularioNegocio() {
         setMensaje('❌ Hubo un problema de conexión. Intenta de nuevo.');
       }
     } else {
+      
+      // ==========================================
+      // MAGIA WHATSAPP: ENVIAR NOTIFICACIÓN AL ADMIN
+      // ==========================================
+      const numeroAdmin = "50376885349"; 
+      const apiKeyBot = "3741282";       
+
+      // 1. Arreglamos el formato de la fecha (De AAAA-MM-DD a DD/MM/AAAA)
+      const [anio, mes, dia] = formData.fecha.split('-');
+      const fechaLocal = `${dia}/${mes}/${anio}`;
+
+      // 2. Función para quitar tildes elegantemente (Para que el bot no borre letras)
+      const limpiarTildes = (texto) => {
+        return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+      };
+
+      // 3. Armamos el mensaje con la fecha nueva
+      const mensajeCrudo = `¡NUEVA CITA EN TURNOPRO! ✂️📅\n\n*Cliente:* ${formData.cliente_nombre}\n*Servicio:* ${formData.servicio}\n*Barbero:* ${formData.barbero}\n*Fecha:* ${fechaLocal} a las ${formData.hora}\n*Tel:* ${formData.cliente_telefono}`;
+      
+      // 4. Limpiamos las tildes antes de enviarlo
+      const textoMensaje = limpiarTildes(mensajeCrudo);
+      
+      try {
+        await fetch(`https://api.callmebot.com/whatsapp.php?phone=${numeroAdmin}&text=${encodeURIComponent(textoMensaje)}&apikey=${apiKeyBot}`);
+        console.log("WhatsApp enviado al admin con éxito");
+      } catch (err) {
+        console.log("Error enviando WhatsApp al admin", err);
+      }
+      // ==========================================
+
       setTicket({ ...formData, codigo: codigoGenerado })
       setFormData({ ...formData, cliente_nombre: '', cliente_telefono: '', hora: '', fecha: '' })
       setMensaje('')
@@ -213,12 +228,7 @@ export default function FormularioNegocio() {
                   <div className="flex gap-4 justify-center flex-wrap">
                     {barberosActivos.map((b) => (
                       <div key={b.id} onClick={() => seleccionarBarbero(b.nombre)} className={`flex flex-col items-center cursor-pointer p-2 rounded-2xl border-2 transition-all ${formData.barbero === b.nombre ? 'border-blue-600 bg-blue-50 shadow-md scale-105' : 'border-gray-100 hover:bg-gray-50'}`}>
-                        {/* PARCHE BLINDADO: Compara quitando espacios y en minúsculas */}
-                        <img 
-                          src={b.nombre.trim().toLowerCase() === 'charlie' ? '/charlie.png' : `https://ui-avatars.com/api/?name=${b.nombre.replace(' ', '+')}&background=random`} 
-                          className="w-16 h-16 rounded-full object-cover mb-2 border-2 border-white shadow-sm" 
-                          alt={b.nombre} 
-                        />
+                        <img src={b.nombre.trim().toLowerCase() === 'charlie' ? '/charlie.png' : `https://ui-avatars.com/api/?name=${b.nombre.replace(' ', '+')}&background=random`} className="w-16 h-16 rounded-full object-cover mb-2 border-2 border-white shadow-sm" alt={b.nombre} />
                         <span className="text-[10px] font-black uppercase text-gray-800 text-center">{b.nombre}</span>
                       </div>
                     ))}

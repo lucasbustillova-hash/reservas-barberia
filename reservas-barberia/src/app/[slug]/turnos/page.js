@@ -11,8 +11,11 @@ export default function TurnosAdmin() {
   const [autorizado, setAutorizado] = useState(false)
   const [negocio, setNegocio] = useState(null)
   const [turnos, setTurnos] = useState([])
-  const [empleados, setEmpleados] = useState([]) // NUEVO: Estado para los barberos
+  const [empleados, setEmpleados] = useState([]) 
   const [loading, setLoading] = useState(true)
+  
+  // MAGIA VISUAL: Estado para guardar el ID de la cita que acaba de entrar
+  const [idResaltado, setIdResaltado] = useState(null)
   
   const [filtroBarbero, setFiltroBarbero] = useState('Todos')
   
@@ -40,13 +43,21 @@ export default function TurnosAdmin() {
 
   // 2. CARGAR DATOS
   useEffect(() => {
-    if (slug) cargarDatos()
+    if (slug) cargarDatosPrincipal()
   }, [slug])
 
-  async function cargarDatos() {
+  const cargarSoloTurnos = async (idNegocio) => {
+    const { data } = await supabase
+      .from('reservas')
+      .select('*')
+      .eq('negocio_id', idNegocio)
+      .order('fecha_hora', { ascending: true })
+    if (data) setTurnos(data)
+  }
+
+  async function cargarDatosPrincipal() {
     setLoading(true)
     try {
-      // Buscar negocio
       const { data: negocioData, error: errorNegocio } = await supabase
         .from('negocios').select('*').eq('slug', slug).single()
       
@@ -55,12 +66,8 @@ export default function TurnosAdmin() {
       }
       setNegocio(negocioData);
 
-      // Buscar Turnos
-      const { data: turnosData } = await supabase
-        .from('reservas').select('*').eq('negocio_id', negocioData.id).order('fecha_hora', { ascending: true })
-      setTurnos(turnosData || [])
+      await cargarSoloTurnos(negocioData.id);
 
-      // Buscar Empleados (NUEVO)
       const { data: empleadosData } = await supabase
         .from('empleados').select('*').eq('negocio_id', negocioData.id).order('nombre', { ascending: true })
       setEmpleados(empleadosData || [])
@@ -72,30 +79,61 @@ export default function TurnosAdmin() {
     }
   }
 
+  // ==========================================
+  // LA MAGIA: EL WALKIE-TALKIE CON ANIMACIÓN
+  // ==========================================
+  useEffect(() => {
+    if (!negocio) return; 
+
+    const canalReservas = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'reservas' 
+        },
+        (payload) => {
+          // Si el evento fue un INSERT (cita nueva), capturamos su ID
+          if (payload.eventType === 'INSERT') {
+            const nuevoId = payload.new.id;
+            
+            // 1. Resaltamos la cita nueva
+            setIdResaltado(nuevoId);
+            
+            // 2. Programamos para quitar el resaltado en 5 segundos
+            setTimeout(() => {
+              setIdResaltado(null);
+            }, 5000); 
+          }
+
+          // Recargamos los turnos de todas formas
+          cargarSoloTurnos(negocio.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(canalReservas);
+    }
+  }, [negocio]);
+  // ==========================================
+
   // 3. FUNCIONES DE ACCIÓN
   async function eliminarTurno(id, nombre) {
     if (window.confirm(`¿Eliminar la cita de ${nombre}?`)) {
-      const { error } = await supabase.from('reservas').delete().eq('id', id)
-      if (!error) setTurnos(turnos.filter(t => t.id !== id))
+      await supabase.from('reservas').delete().eq('id', id)
     }
   }
 
-  // NUEVO: Función para cambiar si el barbero trabaja o descansa
   async function toggleEstadoEmpleado(empleado) {
     const nuevoEstado = !empleado.activo;
-    
-    // Actualizamos la pantalla de inmediato (Efecto visual rápido)
     setEmpleados(empleados.map(emp => emp.id === empleado.id ? { ...emp, activo: nuevoEstado } : emp));
-
-    // Mandamos el aviso a la base de datos
-    const { error } = await supabase
-      .from('empleados')
-      .update({ activo: nuevoEstado })
-      .eq('id', empleado.id);
-
+    const { error } = await supabase.from('empleados').update({ activo: nuevoEstado }).eq('id', empleado.id);
     if (error) {
       alert("Hubo un error de conexión, intenta de nuevo.");
-      cargarDatos(); // Si falla, recargamos los datos reales
+      cargarDatosPrincipal(); 
     }
   }
 
@@ -110,7 +148,7 @@ export default function TurnosAdmin() {
     return coincideBarbero && coincideFecha;
   })
 
-  // 5. PANTALLAS DE CARGA
+  // 5. PANTALLAS
   if (!autorizado) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold tracking-widest animate-pulse">VERIFICANDO SEGURIDAD 🔐...</div>
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold tracking-widest animate-pulse">CARGANDO AGENDA...</div>
   if (!negocio) return <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bold text-red-500">❌ Local no encontrado</div>
@@ -124,7 +162,13 @@ export default function TurnosAdmin() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4 border-b border-slate-100 pb-6">
             <div className="flex flex-col md:flex-row items-center gap-4">
               <h1 className="text-3xl font-black tracking-tighter uppercase">AGENDA <span className="text-yellow-600">{negocio.nombre}</span></h1>
-              <button onClick={cerrarSesion} className="text-xs font-bold text-red-500 border border-red-100 bg-red-50 px-4 py-2 rounded-xl hover:bg-red-100 transition-all">Cerrar Sesión 🔒</button>
+              <div className="flex gap-2">
+                 <span className="flex items-center gap-1 text-xs font-bold text-green-600 bg-green-50 px-3 py-1 rounded-full border border-green-200">
+                    <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+                    EN VIVO
+                 </span>
+                 <button onClick={cerrarSesion} className="text-xs font-bold text-red-500 border border-red-100 bg-red-50 px-4 py-2 rounded-xl hover:bg-red-100 transition-all">Cerrar Sesión 🔒</button>
+              </div>
             </div>
             
             <div className="flex items-center gap-3 bg-slate-50 p-2 rounded-2xl border border-slate-200">
@@ -134,9 +178,6 @@ export default function TurnosAdmin() {
             </div>
           </div>
 
-          {/* ========================================== */}
-          {/* NUEVA SECCIÓN: PANEL DE DISPONIBILIDAD */}
-          {/* ========================================== */}
           <div className="flex flex-col items-center gap-3 border-b border-slate-100 pb-6">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Control de Asistencia (Hoy)</span>
             <div className="flex gap-3 flex-wrap justify-center">
@@ -158,7 +199,6 @@ export default function TurnosAdmin() {
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filtrar Agenda por Barbero</span>
             <div className="flex gap-2 flex-wrap justify-center">
               <button onClick={() => setFiltroBarbero('Todos')} className={`px-5 py-2 rounded-xl text-[10px] font-bold uppercase border transition-all ${filtroBarbero === 'Todos' ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white text-slate-500 border-slate-200'}`}>Todos</button>
-              {/* Ahora los botones de filtro se generan a partir de tu tabla real */}
               {empleados.map(emp => (
                 <button key={emp.id} onClick={() => setFiltroBarbero(emp.nombre)} className={`px-5 py-2 rounded-xl text-[10px] font-bold uppercase border transition-all ${filtroBarbero === emp.nombre ? 'bg-blue-600 text-white border-blue-600 shadow-md shadow-blue-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}>{emp.nombre}</button>
               ))}
@@ -196,7 +236,15 @@ export default function TurnosAdmin() {
                 : `Hola ${nombre}, te escribo de ${negocio.nombre} para confirmar tu cita del ${fecha} a las ${hora} con ${nombreBarbero}.`;
 
               return (
-                <div key={t.id} className="bg-white border border-slate-200 rounded-[24px] p-6 shadow-sm flex flex-col md:flex-row items-center gap-6 hover:shadow-md transition-all">
+                <div 
+                  key={t.id} 
+                  className={`
+                    p-6 flex flex-col md:flex-row items-center gap-6 transition-all duration-1000 ease-out rounded-[24px]
+                    ${idResaltado === t.id 
+                      ? 'bg-yellow-50 border-2 border-yellow-400 ring-4 ring-yellow-200 shadow-lg scale-[1.02]' 
+                      : 'bg-white border border-slate-200 shadow-sm hover:shadow-md'}
+                  `}
+                >
                   <div className="text-center md:text-left md:border-r border-slate-200 md:pr-8 min-w-[120px]">
                     <div className="text-4xl font-black text-slate-900 tracking-tighter">{hora}</div>
                     <div className="text-sm font-bold text-slate-400 mt-1">{fecha}</div>
@@ -212,7 +260,7 @@ export default function TurnosAdmin() {
                     ) : (
                       <button onClick={() => alert("Sin número registrado")} className="flex-1 md:flex-none bg-slate-100 text-slate-400 font-bold py-3 px-6 rounded-xl text-xs cursor-not-allowed">SIN NÚMERO</button>
                     )}
-                    <button onClick={() => eliminarTurno(t.id, nombre)} className="p-3 bg-white text-slate-400 hover:text-red-600 rounded-xl border border-slate-200 shadow-sm">🗑️</button>
+                    <button onClick={() => eliminarTurno(t.id, nombre)} className="p-3 bg-white text-slate-400 hover:text-red-600 rounded-xl border border-slate-200 shadow-sm hover:bg-red-50 transition-all">🗑️</button>
                   </div>
                 </div>
               )
