@@ -26,10 +26,10 @@ export default function FormularioNegocio() {
   const [ticket, setTicket] = useState(null)
 
   const ALMUERZOS_BARBEROS = {
-    'Charlie': ['11:45'],
-    'Barbero 2': ['12:30'],
-    'Barbero 3': ['13:15'],
-    'Barbero 4': ['11:45']
+    'charlie': ['11:45'],
+    'barbero 2': ['12:30'],
+    'barbero 3': ['13:15'],
+    'barbero 4': ['11:45']
   };
 
   useEffect(() => {
@@ -65,10 +65,34 @@ export default function FormularioNegocio() {
   const generarHorarios = () => {
     const horarios = []
     let h = 8, m = 0
-    const horasBloqueadas = ALMUERZOS_BARBEROS[formData.barbero] || []
+    
+    // Convertimos a minúscula y quitamos espacios para que coincida perfecto con la lista de arriba
+    const nombreBarberoLimpio = formData.barbero ? formData.barbero.trim().toLowerCase() : '';
+    const horasBloqueadas = ALMUERZOS_BARBEROS[nombreBarberoLimpio] || [];
+
+    const generarHorarios = () => {
+    const horarios = []
+    let h = 8, m = 0
+    
+    // Convertimos a minúscula y quitamos espacios para que coincida perfecto con la lista de arriba
+    const nombreBarberoLimpio = formData.barbero ? formData.barbero.trim().toLowerCase() : '';
+    const horasBloqueadas = ALMUERZOS_BARBEROS[nombreBarberoLimpio] || [];
+
     while (h < 17 || (h === 17 && m === 0)) {
       const horaFormateada = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+      
       if (!horasBloqueadas.includes(horaFormateada)) horarios.push(horaFormateada)
+      
+      m += 45
+      if (m >= 60) { h++; m -= 60 }
+    }
+    return horarios
+  }
+    while (h < 17 || (h === 17 && m === 0)) {
+      const horaFormateada = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
+      
+      if (!horasBloqueadas.includes(horaFormateada)) horarios.push(horaFormateada)
+      
       m += 45
       if (m >= 60) { h++; m -= 60 }
     }
