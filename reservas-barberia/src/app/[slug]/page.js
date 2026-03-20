@@ -153,7 +153,7 @@ export default function FormularioNegocio() {
       if (error.code === '23505') {
         setMensaje('❌ ¡Ups! Alguien más acaba de ganar este turno. Intenta con otra hora.');
       } else {
-        setMensaje('❌ Hubo un problema de conexión. Intenta de nuevo.');
+        setMensaje(`❌ Error real: ${error.message} (Cód: ${error.code})`);
       }
     } else {
       
