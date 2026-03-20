@@ -9,7 +9,7 @@ export default function FormularioNegocio() {
 
   const [negocio, setNegocio] = useState(null)
   const [barberosActivos, setBarberosActivos] = useState([]) 
-  const [ausencias, setAusencias] = useState([]) // NUEVO: Estado para guardar días libres
+  const [ausencias, setAusencias] = useState([]) 
   const [cargandoNegocio, setCargandoNegocio] = useState(true)
 
   const [formData, setFormData] = useState({
@@ -39,7 +39,6 @@ export default function FormularioNegocio() {
       if (negocioData) {
         setNegocio(negocioData)
 
-        // Cargamos barberos
         const { data: empleadosData } = await supabase.from('empleados').select('*').eq('negocio_id', negocioData.id).eq('activo', true) 
         if (empleadosData && empleadosData.length > 0) {
           const barberosOrdenados = empleadosData.sort((a, b) => {
@@ -55,7 +54,6 @@ export default function FormularioNegocio() {
           setBarberosActivos([]) 
         }
 
-        // Cargamos las ausencias del negocio
         const { data: ausenciasData } = await supabase.from('ausencias').select('*').eq('negocio_id', negocioData.id)
         if (ausenciasData) setAusencias(ausenciasData)
       }
@@ -78,8 +76,6 @@ export default function FormularioNegocio() {
   }
 
   const horariosDisponibles = generarHorarios()
-
-  // VERIFICAR SI EL DÍA ELEGIDO ES LIBRE
   const esDiaLibre = ausencias.some(a => a.barbero === formData.barbero && a.fecha === formData.fecha);
 
   useEffect(() => {
@@ -102,7 +98,7 @@ export default function FormularioNegocio() {
   }, [formData.fecha, formData.barbero, negocio, esDiaLibre])
 
   const handleChange = (e) => setFormData({ ...formData, [e.target.name]: e.target.value })
-  const seleccionarBarbero = (nombre) => setFormData({ ...formData, barbero: nombre, hora: '', fecha: '' }) // Limpia fecha y hora al cambiar barbero
+  const seleccionarBarbero = (nombre) => setFormData({ ...formData, barbero: nombre, hora: '', fecha: '' })
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -138,10 +134,10 @@ export default function FormularioNegocio() {
     } else {
       
       // ==========================================
-      // MAGIA WHATSAPP: ENVIAR NOTIFICACIÓN AL ADMIN
+      // MAGIA WHATSAPP: NOTIFICACIÓN AL ADMIN + AUTO-MENSAJE AL CLIENTE
       // ==========================================
-      const numeroAdmin = "50376885349"; // <-- ¡Pon aquí tu número real!
-      const apiKeyBot = "3741282";       // <-- ¡Tu clave secreta de CallMeBot!
+      const numeroAdmin = "50376885349"; // <-- ¡PON TU NÚMERO AQUÍ!
+      const apiKeyBot = "3741282";       // <-- ¡PON TU API KEY AQUÍ!
 
       const [anio, mes, dia] = formData.fecha.split('-');
       const fechaLocal = `${dia}/${mes}/${anio}`;
@@ -150,15 +146,21 @@ export default function FormularioNegocio() {
         return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
       };
 
+      // 1. Enviamos el mensaje en silencio a Charlie (vía CallMeBot)
       const mensajeCrudo = `¡NUEVA CITA EN TURNOPRO! ✂️📅\n\n*Cliente:* ${formData.cliente_nombre}\n*Servicio:* ${formData.servicio}\n*Barbero:* ${formData.barbero}\n*Fecha:* ${fechaLocal} a las ${formData.hora}\n*Tel:* ${formData.cliente_telefono}`;
       const textoMensaje = limpiarTildes(mensajeCrudo);
       
       try {
         await fetch(`https://api.callmebot.com/whatsapp.php?phone=${numeroAdmin}&text=${encodeURIComponent(textoMensaje)}&apikey=${apiKeyBot}`);
       } catch (err) {}
+
+      // 2. Preparamos el Auto-Mensaje para el botón del cliente
+      const textoParaCharlie = `¡Hola! Soy ${formData.cliente_nombre}. Acabo de agendar en TurnoPro un ${formData.servicio} con ${formData.barbero} para el ${fechaLocal} a las ${formData.hora}. Mi código de reserva es #${codigoGenerado}. ¡Nos vemos!`;
+      const urlWhatsAppCliente = `https://api.whatsapp.com/send?phone=${numeroAdmin}&text=${encodeURIComponent(textoParaCharlie)}`;
       // ==========================================
 
-      setTicket({ ...formData, codigo: codigoGenerado })
+      // Guardamos el ticket inyectándole la URL mágica del WhatsApp
+      setTicket({ ...formData, codigo: codigoGenerado, waUrl: urlWhatsAppCliente })
       setFormData({ ...formData, cliente_nombre: '', cliente_telefono: '', hora: '', fecha: '' })
       setMensaje('')
     }
@@ -176,7 +178,7 @@ export default function FormularioNegocio() {
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner"><span className="text-3xl">✅</span></div>
               <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">¡Reserva Confirmada!</h2>
-              <p className="text-sm font-bold text-red-500 mt-2 bg-red-50 py-2 rounded-lg border border-red-100">📸 Toma captura de este ticket</p>
+              <p className="text-sm font-bold text-slate-500 mt-2">Confirma tu cita en el botón de abajo 👇</p>
             </div>
             <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 p-6 mb-6 relative">
               <div className="absolute -left-4 top-1/2 w-8 h-8 bg-white rounded-full border-r-2 border-dashed border-gray-300 transform -translate-y-1/2"></div>
@@ -193,6 +195,17 @@ export default function FormularioNegocio() {
                 <div className="col-span-2 mt-2 pt-4 border-t border-gray-200"><p className="text-[10px] font-black uppercase text-gray-400">Servicio</p><p className="text-sm font-bold text-gray-700 bg-gray-100 py-2 px-3 rounded-lg inline-block mt-1">✂️ {ticket.servicio}</p></div>
               </div>
             </div>
+            
+            {/* NUEVO BOTÓN: Auto-Mensaje de WhatsApp para el cliente */}
+            <a 
+              href={ticket.waUrl} 
+              target="_blank" 
+              rel="noopener noreferrer" 
+              className="w-full flex justify-center items-center gap-2 bg-[#25D366] text-white font-black py-4 rounded-xl hover:bg-green-600 shadow-lg shadow-green-200 transition-all uppercase tracking-widest text-xs mb-3 active:scale-95"
+            >
+              <span className="text-lg">💬</span> Confirmar mi Cita por WhatsApp
+            </a>
+
             <button onClick={() => setTicket(null)} className="w-full bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-gray-800 transition-all uppercase tracking-widest text-xs active:scale-95">Hacer otra reserva</button>
           </div>
         ) : (
@@ -257,7 +270,6 @@ export default function FormularioNegocio() {
                   </div>
                 )}
 
-                {/* BOTÓN DE ENVIAR: Solo se muestra si NO es día libre */}
                 {!esDiaLibre && (
                   <button type="submit" disabled={cargando} className="w-full bg-blue-600 text-white font-black py-4 rounded-xl hover:bg-blue-700 shadow-lg shadow-blue-200 transition-all uppercase tracking-widest text-sm active:scale-95 disabled:bg-gray-400 mt-6">{cargando ? 'PROCESANDO...' : 'Confirmar Reserva'}</button>
                 )}
