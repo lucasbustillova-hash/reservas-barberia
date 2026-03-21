@@ -269,8 +269,9 @@ export default function TurnosAdmin() {
               if (telLimpio.length === 8) telLimpio = '503' + telLimpio; 
               else if (telLimpio.length === 10) telLimpio = '1' + telLimpio; 
               
-              // 1. Ponemos guapo el nombre del barbero con su mayúscula inicial
-              const barberoMayuscula = nombreBarbero ? nombreBarbero.charAt(0).toUpperCase() + nombreBarbero.slice(1) : '';
+              // 1. Limpiamos espacios fantasmas y aplicamos la mayúscula inicial
+const barberoLimpio = nombreBarbero ? nombreBarbero.trim() : '';
+const barberoMayuscula = barberoLimpio ? barberoLimpio.charAt(0).toUpperCase() + barberoLimpio.slice(1) : '';
 
               // 2. Armamos el mensaje usando la nueva variable
               const mensajeWhatsApp = t.codigo 
