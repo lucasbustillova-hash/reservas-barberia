@@ -179,10 +179,13 @@ export default function FormularioNegocio() {
       } catch (err) {}
 
       // 2. Preparamos el Auto-Mensaje para el botón del cliente
-      const textoParaCharlie = `¡Hola! Soy ${formData.cliente_nombre}. Acabo de agendar en TurnoPro un ${formData.servicio} con ${formData.barbero} para el ${fechaLocal} a las ${formData.hora}. Mi código de reserva es #${codigoGenerado}. ¡Nos vemos!`;
+      const barberoMayuscula = formData.barbero.charAt(0).toUpperCase() + formData.barbero.slice(1);
+      
+      const textoParaCharlie = `¡Hola! Soy ${formData.cliente_nombre}. Acabo de agendar en TurnoPro un ${formData.servicio} con ${barberoMayuscula} para el ${fechaLocal} a las ${formData.hora}. Mi código de reserva es #${codigoGenerado}. ¡Nos vemos!`;
+      
       const urlWhatsAppCliente = `https://api.whatsapp.com/send?phone=${numeroAdmin}&text=${encodeURIComponent(textoParaCharlie)}`;
       // ==========================================
-
+      
       // Guardamos el ticket inyectándole la URL mágica del WhatsApp
       setTicket({ ...formData, codigo: codigoGenerado, waUrl: urlWhatsAppCliente })
       setFormData({ ...formData, cliente_nombre: '', cliente_telefono: '', hora: '', fecha: '' })
