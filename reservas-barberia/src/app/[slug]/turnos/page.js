@@ -269,9 +269,13 @@ export default function TurnosAdmin() {
               if (telLimpio.length === 8) telLimpio = '503' + telLimpio; 
               else if (telLimpio.length === 10) telLimpio = '1' + telLimpio; 
               
+              // 1. Ponemos guapo el nombre del barbero con su mayúscula inicial
+              const barberoMayuscula = nombreBarbero ? nombreBarbero.charAt(0).toUpperCase() + nombreBarbero.slice(1) : '';
+
+              // 2. Armamos el mensaje usando la nueva variable
               const mensajeWhatsApp = t.codigo 
-                ? `Hola ${nombre}, te confirmo tu cita en ${negocio.nombre} para el ${fecha} a las ${hora} con ${nombreBarbero}. Tu código es #${t.codigo}. ¡Te esperamos!`
-                : `Hola ${nombre}, te escribo de ${negocio.nombre} para confirmar tu cita del ${fecha} a las ${hora} con ${nombreBarbero}.`;
+                ? `Hola ${nombre}, te confirmo tu cita en ${negocio.nombre} para el ${fecha} a las ${hora} con ${barberoMayuscula}. Tu código es #${t.codigo}. ¡Te esperamos!`
+                : `Hola ${nombre}, te escribo de ${negocio.nombre} para confirmar tu cita del ${fecha} a las ${hora} con ${barberoMayuscula}.`;
 
               return (
                 <div key={t.id} className={`p-6 flex flex-col md:flex-row items-center gap-6 transition-all duration-1000 ease-out rounded-[24px] ${idResaltado === t.id ? 'bg-yellow-50 border-2 border-yellow-400 ring-4 ring-yellow-200 shadow-lg scale-[1.02]' : 'bg-white border border-slate-200 shadow-sm hover:shadow-md'}`}>
