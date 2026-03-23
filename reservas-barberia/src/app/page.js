@@ -1,125 +1,99 @@
 import Link from 'next/link'
 
 export default function LandingPage() {
-  // Cambia este número por tu WhatsApp real (con el código de país 503)
-  const miWhatsApp = "50376885349"
-  const mensajeVentas = "¡Hola! Visité la página de tu sistema de reservas y me gustaría solicitar una demostración para mi negocio."
+  const miWhatsApp = "50376885349" // Tu número real que vi en tu código
+  const mensajeVentas = "¡Hola! Vi la página de TurnoPro y me interesa automatizar las reservas de mi negocio. ¿Me pueden dar más información?";
 
   return (
-    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 selection:bg-blue-200">
+    <div className="min-h-screen bg-slate-50 font-sans text-slate-900 pb-20">
       
-      {/* 1. NAVEGACIÓN */}
-      <nav className="flex justify-between items-center p-6 md:px-12 bg-white border-b border-slate-100 sticky top-0 z-50">
-        <div className="text-2xl font-black tracking-tighter text-slate-900 flex items-center gap-2">
-          <span className="bg-blue-600 text-white p-1.5 rounded-lg text-sm">🗓️</span>
-          TurnoPro <span className="text-blue-600 text-sm font-bold ml-1 px-2 py-0.5 bg-blue-50 rounded-full">SaaS</span>
+      {/* NAVEGACIÓN */}
+      <nav className="flex justify-between items-center p-6 max-w-6xl mx-auto">
+        <div className="text-2xl font-black tracking-tighter">
+          <span className="bg-blue-600 text-white p-1.5 rounded-lg mr-1">Turno</span>Pro
         </div>
-        <a 
-          href={`https://api.whatsapp.com/send?phone=${miWhatsApp}&text=${encodeURIComponent(mensajeVentas)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="bg-slate-900 hover:bg-slate-800 text-white px-5 py-2.5 rounded-full text-xs font-black uppercase tracking-widest transition-all shadow-md active:scale-95"
-        >
-          Solicitar Demo
-        </a>
       </nav>
 
-      {/* 2. HERO SECTION (El Gancho) */}
-      <header className="px-6 py-20 md:py-32 text-center flex flex-col items-center justify-center bg-white relative overflow-hidden">
-        <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-blue-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob"></div>
-        <div className="absolute top-[20%] right-[-5%] w-72 h-72 bg-yellow-100 rounded-full mix-blend-multiply filter blur-3xl opacity-50 animate-blob animation-delay-2000"></div>
-        
-        <div className="relative z-10 max-w-3xl">
-          <span className="text-blue-600 font-bold uppercase tracking-widest text-xs mb-4 block">Automatización de tiempo al 100%</span>
-          <h1 className="text-5xl md:text-7xl font-black tracking-tighter text-slate-900 mb-6 leading-tight">
-            Tu negocio abierto <span className="text-blue-600">24/7.</span> Sin complicaciones.
-          </h1>
-          <p className="text-lg md:text-xl text-slate-500 mb-10 font-medium max-w-2xl mx-auto leading-relaxed">
-            El sistema de agendamiento inteligente diseñado para profesionales que valoran su tiempo. Olvídate de los choques de horarios, los mensajes de WhatsApp a deshoras y los cuadernos de papel.
-          </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <a 
-              href={`https://api.whatsapp.com/send?phone=${miWhatsApp}&text=${encodeURIComponent(mensajeVentas)}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-4 rounded-2xl text-sm font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-200 active:scale-95"
-            >
-              Hablar con un asesor
-            </a>
-          </div>
+      {/* HERO SECTION (El gancho principal) */}
+      <header className="max-w-4xl mx-auto text-center px-6 pt-16 pb-20">
+        <div className="inline-block bg-blue-50 text-blue-700 font-bold px-4 py-1.5 rounded-full text-sm mb-6 border border-blue-200">
+          ✨ Diseñado para Barberías, Salones y Spas
         </div>
-      </header>
-
-      {/* 3. PROBLEMA Y SOLUCIÓN (Beneficios) */}
-      <section className="py-20 px-6 md:px-12 max-w-6xl mx-auto">
-        <div className="text-center mb-16">
-          <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4">Todo lo que necesitas para operar en piloto automático</h2>
-          <p className="text-slate-500 font-medium">Diseñado a la medida de la realidad de los negocios en El Salvador.</p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-8">
-          <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 hover:shadow-xl transition-all hover:-translate-y-1">
-            <div className="text-4xl mb-4 bg-red-50 w-16 h-16 rounded-2xl flex items-center justify-center">🛡️</div>
-            <h3 className="text-xl font-black mb-3">Escudo Anti-Choques</h3>
-            <p className="text-slate-500 font-medium text-sm leading-relaxed">Nuestro sistema bloquea automáticamente las horas ocupadas en tiempo real. Es matemáticamente imposible que dos clientes reserven el mismo turno.</p>
-          </div>
-          <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 hover:shadow-xl transition-all hover:-translate-y-1">
-            <div className="text-4xl mb-4 bg-green-50 w-16 h-16 rounded-2xl flex items-center justify-center">📲</div>
-            <h3 className="text-xl font-black mb-3">Enlace Propio</h3>
-            <p className="text-slate-500 font-medium text-sm leading-relaxed">Te entregamos un enlace único con el nombre de tu marca (ej: mi-negocio.com/mi-local) listo para poner en tu biografía de Instagram o Facebook.</p>
-          </div>
-          <div className="bg-white p-8 rounded-[32px] shadow-sm border border-slate-100 hover:shadow-xl transition-all hover:-translate-y-1">
-            <div className="text-4xl mb-4 bg-yellow-50 w-16 h-16 rounded-2xl flex items-center justify-center">☕</div>
-            <h3 className="text-xl font-black mb-3">Logística Operativa</h3>
-            <p className="text-slate-500 font-medium text-sm leading-relaxed">Soporte para múltiples colaboradores en un mismo local, con horarios de almuerzo y descansos configurables para que nadie se quede sin comer.</p>
-          </div>
-        </div>
-      </section>
-
-      {/* 4. CASOS DE USO (A quién va dirigido) */}
-      <section className="py-20 px-6 md:px-12 bg-slate-900 text-white rounded-[40px] max-w-6xl mx-auto my-12 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-blue-500 rounded-full mix-blend-screen filter blur-3xl opacity-20"></div>
-        
-        <div className="relative z-10">
-          <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-black tracking-tight mb-4">Una solución adaptable a cualquier industria</h2>
-            <p className="text-slate-400 font-medium">No importa tu rubro, si dependes de una agenda, este sistema es para ti.</p>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-8 text-center">
-            <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="text-4xl mb-3">🩺</div>
-              <h4 className="font-bold text-sm tracking-wide">Clínicas Pediátricas y Médicas</h4>
-            </div>
-            <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="text-4xl mb-3">⚖️</div>
-              <h4 className="font-bold text-sm tracking-wide">Despachos Legales</h4>
-            </div>
-            <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="text-4xl mb-3">💼</div>
-              <h4 className="font-bold text-sm tracking-wide">Asesores de Seguros</h4>
-            </div>
-            <div className="bg-slate-800/50 p-6 rounded-3xl border border-slate-700/50 backdrop-blur-sm">
-              <div className="text-4xl mb-3">✂️</div>
-              <h4 className="font-bold text-sm tracking-wide">Salones y Barberías</h4>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* 5. FOOTER / CIERRE */}
-      <footer className="py-12 px-6 text-center">
-        <h2 className="text-2xl font-black tracking-tight text-slate-900 mb-6">¿Listo para dar el salto digital?</h2>
+        <h1 className="text-5xl md:text-6xl font-black tracking-tighter mb-6 leading-tight">
+          Llena tu agenda sin contestar <span className="text-blue-600">WhatsApp.</span>
+        </h1>
+        <p className="text-xl text-slate-500 mb-10 max-w-2xl mx-auto font-medium">
+          El sistema de reservas definitivo. Tus clientes se agendan solos 24/7, y tú recuperas el control de tu tiempo y tu negocio.
+        </p>
         <a 
           href={`https://api.whatsapp.com/send?phone=${miWhatsApp}&text=${encodeURIComponent(mensajeVentas)}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-block bg-slate-900 hover:bg-slate-800 text-white px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shadow-md active:scale-95 mb-12"
+          target="_blank" rel="noopener noreferrer"
+          className="bg-slate-900 text-white font-black px-8 py-4 rounded-2xl text-lg hover:bg-slate-800 transition-all shadow-lg hover:shadow-xl hover:-translate-y-1 inline-block"
         >
-          Contáctanos hoy
+          Pedir mi sistema ahora 🚀
         </a>
-        <p className="text-slate-400 text-xs font-bold tracking-widest uppercase">© {new Date().getFullYear()} TurnoPro Software. Desarrollado en El Salvador.</p>
-      </footer>
+      </header>
+
+      {/* SECCIÓN 1: VIDEO CLIENTE */}
+      <section className="max-w-6xl mx-auto px-6 py-16 grid md:grid-cols-2 gap-12 items-center">
+        <div className="order-2 md:order-1 relative">
+          {/* El div del fondo es solo un adorno para que el video resalte */}
+          <div className="absolute inset-0 bg-blue-100 rounded-[2rem] transform rotate-3 scale-105 -z-10"></div>
+          {/* Aquí va tu primer video */}
+          <video src="/demo-cliente.mp4" autoPlay loop muted playsInline className="w-full rounded-[2rem] shadow-2xl border-4 border-white" />
+        </div>
+        <div className="order-1 md:order-2">
+          <h2 className="text-4xl font-black tracking-tighter mb-4">Tus clientes agendan en <span className="text-blue-600">3 clics.</span></h2>
+          <p className="text-lg text-slate-500 font-medium mb-6">
+            Olvida el "déjame revisar la libreta". Tus clientes ven tus horarios disponibles y se agendan al instante desde cualquier celular, sin descargar aplicaciones.
+          </p>
+          <ul className="space-y-3 font-bold text-slate-700">
+            <li className="flex items-center gap-2">✅ Funciona las 24 horas del día.</li>
+            <li className="flex items-center gap-2">✅ Sin descargas molestas.</li>
+            <li className="flex items-center gap-2">✅ Evita las citas dobles.</li>
+          </ul>
+        </div>
+      </section>
+
+      {/* SECCIÓN 2: VIDEO ADMIN */}
+      <section className="max-w-6xl mx-auto px-6 py-20 grid md:grid-cols-2 gap-12 items-center">
+        <div>
+          <h2 className="text-4xl font-black tracking-tighter mb-4">Control total en <span className="text-yellow-600">Tiempo Real.</span></h2>
+          <p className="text-lg text-slate-500 font-medium mb-6">
+            Recibe notificaciones en vivo cada vez que alguien agenda. Bloquea horarios de almuerzo, gestiona a tu personal y confirma citas por WhatsApp con un solo botón.
+          </p>
+          <ul className="space-y-3 font-bold text-slate-700">
+            <li className="flex items-center gap-2">⚡ Panel de administración en vivo.</li>
+            <li className="flex items-center gap-2">⚡ Mensajes de WhatsApp automatizados.</li>
+            <li className="flex items-center gap-2">⚡ Control de ausencias y días libres.</li>
+          </ul>
+        </div>
+        <div className="relative">
+          <div className="absolute inset-0 bg-yellow-100 rounded-[2rem] transform -rotate-3 scale-105 -z-10"></div>
+          {/* Aquí va tu segundo video */}
+          <video src="/demo-admin.mp4" autoPlay loop muted playsInline className="w-full rounded-[2rem] shadow-2xl border-4 border-white" />
+        </div>
+      </section>
+
+{/* SECCIÓN FINAL: CALL TO ACTION (CTA) */}
+      <section className="max-w-4xl mx-auto text-center px-6 py-24 border-t border-slate-200 mt-10">
+        <h2 className="text-4xl font-black tracking-tighter mb-6">
+          ¿Listo para llevar tu negocio al <span className="text-blue-600">siguiente nivel?</span>
+        </h2>
+        <p className="text-xl text-slate-500 mb-10 max-w-2xl mx-auto font-medium">
+          Únete a los salones y barberías que ya automatizaron su agenda. Deja que TurnoPro trabaje por ti mientras tú te enfocas en atender a tus clientes.
+        </p>
+        <a 
+          href={`https://api.whatsapp.com/send?phone=${miWhatsApp}&text=${encodeURIComponent(mensajeVentas)}`}
+          target="_blank" rel="noopener noreferrer"
+          className="bg-blue-600 text-white font-black px-10 py-5 rounded-2xl text-xl hover:bg-blue-700 transition-all shadow-xl hover:shadow-2xl hover:-translate-y-1 inline-block"
+        >
+          Pedir mi sistema ahora 🚀
+        </a>
+        <p className="text-sm text-slate-400 mt-6 font-bold">
+          Configuración rápida • Sin tarjetas de crédito • Soporte directo
+        </p>
+      </section>
 
     </div>
   )
