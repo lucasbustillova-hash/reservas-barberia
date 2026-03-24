@@ -200,7 +200,7 @@ export default function FormularioNegocio() {
         .from('reservas')
         .update({ comprobante_url: publicUrl })
         .eq('codigo', ticket.codigo)
-
+        .select()
       if (errorUpdate) throw errorUpdate
 
       setFotoSubida(true)
