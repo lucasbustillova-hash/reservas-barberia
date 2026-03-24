@@ -12,14 +12,19 @@ export default function TurnosAdmin() {
   const [negocio, setNegocio] = useState(null)
   const [turnos, setTurnos] = useState([])
   const [empleados, setEmpleados] = useState([]) 
-  const [ausencias, setAusencias] = useState([]) // NUEVO ESTADO PARA AUSENCIAS
+  const [ausencias, setAusencias] = useState([]) 
   const [loading, setLoading] = useState(true)
   
   const [idResaltado, setIdResaltado] = useState(null)
   const [filtroBarbero, setFiltroBarbero] = useState('Todos')
   
-  // FORMULARIO PARA BLOQUEAR FECHAS
   const [formAusencia, setFormAusencia] = useState({ barbero: '', fecha: '' })
+
+  // ==========================================
+  // NUEVOS ESTADOS PARA EL MODAL DE FOTOS
+  // ==========================================
+  const [fotoModal, setFotoModal] = useState(null)
+  const [turnoActivo, setTurnoActivo] = useState(null)
 
   const getHoy = () => {
     const d = new Date();
@@ -33,7 +38,6 @@ export default function TurnosAdmin() {
     router.push('/login')
   }
 
-  // 1. VERIFICAR SEGURIDAD
   useEffect(() => {
     const verificarSesion = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -43,7 +47,6 @@ export default function TurnosAdmin() {
     verificarSesion()
   }, [router])
 
-  // 2. CARGAR DATOS
   useEffect(() => {
     if (slug) cargarDatosPrincipal()
   }, [slug])
@@ -71,7 +74,6 @@ export default function TurnosAdmin() {
       const { data: empleadosData } = await supabase.from('empleados').select('*').eq('negocio_id', negocioData.id).order('nombre', { ascending: true })
       if (empleadosData) {
         setEmpleados(empleadosData)
-        // Setear el primer barbero por defecto en el formulario de ausencias
         if (empleadosData.length > 0) setFormAusencia(prev => ({ ...prev, barbero: empleadosData[0].nombre }))
       }
     } catch (err) {
@@ -81,9 +83,6 @@ export default function TurnosAdmin() {
     }
   }
 
-  // ==========================================
-  // LA MAGIA: EL WALKIE-TALKIE CON ANIMACIÓN
-  // ==========================================
   useEffect(() => {
     if (!negocio) return; 
     const canalReservas = supabase.channel('schema-db-changes').on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' },
@@ -99,7 +98,6 @@ export default function TurnosAdmin() {
     return () => { supabase.removeChannel(canalReservas); }
   }, [negocio]);
 
-  // 3. FUNCIONES DE ACCIÓN
   async function eliminarTurno(id, nombre) {
     if (window.confirm(`¿Eliminar la cita de ${nombre}?`)) {
       await supabase.from('reservas').delete().eq('id', id)
@@ -112,7 +110,6 @@ export default function TurnosAdmin() {
     await supabase.from('empleados').update({ activo: nuevoEstado }).eq('id', empleado.id);
   }
 
-  // AGREGAR DÍA LIBRE
   async function agregarAusencia(e) {
     e.preventDefault();
     if (!formAusencia.barbero || !formAusencia.fecha) return;
@@ -122,19 +119,43 @@ export default function TurnosAdmin() {
     
     if (!error && data) {
       setAusencias([...ausencias, data[0]]);
-      setFormAusencia({ ...formAusencia, fecha: '' }); // Limpiar fecha
+      setFormAusencia({ ...formAusencia, fecha: '' }); 
     } else {
       alert("Hubo un error al guardar el día libre.");
     }
   }
 
-  // ELIMINAR DÍA LIBRE
   async function eliminarAusencia(id) {
     await supabase.from('ausencias').delete().eq('id', id);
     setAusencias(ausencias.filter(a => a.id !== id));
   }
 
-  // 4. FILTROS
+  // ==========================================
+  // FUNCIONES DEL MODAL DE COMPROBANTES
+  // ==========================================
+  const abrirModal = (turno) => {
+    setTurnoActivo(turno)
+    setFotoModal(turno.comprobante_url)
+  }
+
+  const cerrarModal = () => {
+    setTurnoActivo(null)
+    setFotoModal(null)
+  }
+
+  const aprobarPago = () => {
+    alert("¡Comprobante validado! El turno se mantiene confirmado en tu agenda.")
+    cerrarModal()
+  }
+
+  const rechazarPago = async () => {
+    if(window.confirm("⚠️ ¿Estás seguro que este comprobante es falso o inválido? Se eliminará la cita y se liberará el espacio.")){
+      await supabase.from('reservas').delete().eq('id', turnoActivo.id)
+      cerrarModal()
+    }
+  }
+  // ==========================================
+
   const turnosFiltrados = turnos.filter(t => {
     const coincideBarbero = filtroBarbero === 'Todos' || t.barbero === filtroBarbero;
     let coincideFecha = true;
@@ -145,14 +166,12 @@ export default function TurnosAdmin() {
     return coincideBarbero && coincideFecha;
   })
 
-  // 5. PANTALLAS
   if (!autorizado) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold tracking-widest animate-pulse">VERIFICANDO SEGURIDAD 🔐...</div>
   if (loading) return <div className="min-h-screen flex items-center justify-center bg-slate-50 text-slate-400 font-bold tracking-widest animate-pulse">CARGANDO AGENDA...</div>
   if (!negocio) return <div className="min-h-screen flex items-center justify-center bg-slate-50 font-bold text-red-500">❌ Local no encontrado</div>
 
-  // 6. DISEÑO
   return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 font-sans">
+    <div className="min-h-screen bg-slate-50 p-4 md:p-8 text-slate-900 font-sans relative">
       <div className="max-w-4xl mx-auto">
         
         <header className="mb-8 bg-white p-6 rounded-[24px] shadow-sm border border-slate-200 flex flex-col gap-6">
@@ -189,9 +208,6 @@ export default function TurnosAdmin() {
             </div>
           </div>
 
-          {/* ========================================================= */}
-          {/* NUEVA SECCIÓN: PROGRAMAR DÍAS LIBRES A FUTURO */}
-          {/* ========================================================= */}
           <div className="flex flex-col items-center gap-4 border-b border-slate-100 pb-6 bg-slate-50 p-4 rounded-2xl border border-slate-200">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">📅 Programar Días Libres a Futuro</span>
             
@@ -231,7 +247,6 @@ export default function TurnosAdmin() {
               </div>
             )}
           </div>
-          {/* ========================================================= */}
 
           <div className="flex flex-col items-center gap-2 pt-2">
             <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Filtrar Agenda por Barbero</span>
@@ -269,11 +284,9 @@ export default function TurnosAdmin() {
               if (telLimpio.length === 8) telLimpio = '503' + telLimpio; 
               else if (telLimpio.length === 10) telLimpio = '1' + telLimpio; 
               
-              // 1. Limpiamos espacios fantasmas y aplicamos la mayúscula inicial
-const barberoLimpio = nombreBarbero ? nombreBarbero.trim() : '';
-const barberoMayuscula = barberoLimpio ? barberoLimpio.charAt(0).toUpperCase() + barberoLimpio.slice(1) : '';
+              const barberoLimpio = nombreBarbero ? nombreBarbero.trim() : '';
+              const barberoMayuscula = barberoLimpio ? barberoLimpio.charAt(0).toUpperCase() + barberoLimpio.slice(1) : '';
 
-              // 2. Armamos el mensaje usando la nueva variable
               const mensajeWhatsApp = t.codigo 
                 ? `Hola ${nombre}, te confirmo tu cita en ${negocio.nombre} para el ${fecha} a las ${hora} con ${barberoMayuscula}. Tu código es #${t.codigo}. ¡Te esperamos!`
                 : `Hola ${nombre}, te escribo de ${negocio.nombre} para confirmar tu cita del ${fecha} a las ${hora} con ${barberoMayuscula}.`;
@@ -287,11 +300,26 @@ const barberoMayuscula = barberoLimpio ? barberoLimpio.charAt(0).toUpperCase() +
                   <div className="flex-1 text-center md:text-left">
                     <p className="text-sm font-black text-blue-600 uppercase tracking-widest mb-1">{nombreBarbero}</p>
                     <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight">{nombre}</h3>
-                    <div className="flex gap-2 justify-center md:justify-start mt-3 flex-wrap">
+                    <div className="flex gap-2 justify-center md:justify-start mt-3 flex-wrap items-center">
                       <span className="inline-block bg-slate-50 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">✂️ {t.servicio || 'Servicio'}</span>
                       {t.codigo && (
                         <span className="inline-block bg-blue-50 text-blue-700 text-xs font-black px-3 py-1.5 rounded-lg border border-blue-200 uppercase tracking-widest shadow-sm">#{t.codigo}</span>
                       )}
+                      
+                      {/* ========================================== */}
+                      {/* INDICADOR DE FOTO EN LA TARJETA            */}
+                      {/* ========================================== */}
+                      {t.comprobante_url ? (
+                        <button onClick={() => abrirModal(t)} className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-black px-3 py-1.5 rounded-lg border border-green-300 uppercase shadow-sm hover:bg-green-200 transition-all active:scale-95">
+                          📎 Ver Recibo
+                        </button>
+                      ) : (
+                        <span className="inline-block bg-red-50 text-red-500 text-[10px] font-bold px-2 py-1 rounded-md border border-red-100 uppercase tracking-widest">
+                          ⚠️ Sin Pago
+                        </span>
+                      )}
+                      {/* ========================================== */}
+                      
                     </div>
                   </div>
                   <div className="flex gap-2 w-full md:w-auto mt-4 md:mt-0">
@@ -308,6 +336,37 @@ const barberoMayuscula = barberoLimpio ? barberoLimpio.charAt(0).toUpperCase() +
           </div>
         )}
       </div>
+
+      {/* ========================================== */}
+      {/* EL POP-UP (MODAL) PARA VER LA FOTO           */}
+      {/* ========================================== */}
+      {fotoModal && turnoActivo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="bg-white p-6 rounded-3xl max-w-md w-full flex flex-col items-center shadow-2xl animate-in zoom-in-95 duration-200">
+            <h3 className="text-xl font-black text-slate-900 uppercase tracking-tighter mb-1">Revisar Pago</h3>
+            <p className="text-sm font-bold text-slate-500 mb-4">{turnoActivo.cliente_nombre}</p>
+            
+            <div className="w-full bg-slate-100 rounded-2xl border border-slate-200 mb-6 flex items-center justify-center overflow-hidden h-[50vh]">
+              <img src={fotoModal} alt="Comprobante" className="w-full h-full object-contain" />
+            </div>
+
+            <div className="w-full grid grid-cols-2 gap-4">
+              <button onClick={rechazarPago} className="bg-red-50 text-red-600 font-black py-4 rounded-xl uppercase tracking-widest text-xs hover:bg-red-100 border border-red-200 transition-all active:scale-95">
+                ❌ Rechazar
+              </button>
+              <button onClick={aprobarPago} className="bg-green-500 text-white font-black py-4 rounded-xl uppercase tracking-widest text-xs hover:bg-green-600 shadow-md shadow-green-200 transition-all active:scale-95">
+                ✅ Aprobar
+              </button>
+            </div>
+            
+            <button onClick={cerrarModal} className="mt-6 text-slate-400 font-bold text-xs uppercase tracking-widest underline hover:text-slate-600 transition-colors">
+              Cerrar y volver a la agenda
+            </button>
+          </div>
+        </div>
+      )}
+      {/* ========================================== */}
+
     </div>
   )
 }

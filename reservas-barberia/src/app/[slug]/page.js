@@ -25,6 +25,10 @@ export default function FormularioNegocio() {
   const [cargando, setCargando] = useState(false)
   const [ticket, setTicket] = useState(null)
 
+  // NUEVOS ESTADOS PARA LA FOTO
+  const [subiendoFoto, setSubiendoFoto] = useState(false)
+  const [fotoSubida, setFotoSubida] = useState(false)
+
   const ALMUERZOS_BARBEROS = {
     'charlie': ['11:45'],
     'barbero 2': ['12:30'],
@@ -66,33 +70,12 @@ export default function FormularioNegocio() {
     const horarios = []
     let h = 8, m = 0
     
-    // Convertimos a minúscula y quitamos espacios para que coincida perfecto con la lista de arriba
-    const nombreBarberoLimpio = formData.barbero ? formData.barbero.trim().toLowerCase() : '';
-    const horasBloqueadas = ALMUERZOS_BARBEROS[nombreBarberoLimpio] || [];
-
-    const generarHorarios = () => {
-    const horarios = []
-    let h = 8, m = 0
-    
-    // Convertimos a minúscula y quitamos espacios para que coincida perfecto con la lista de arriba
     const nombreBarberoLimpio = formData.barbero ? formData.barbero.trim().toLowerCase() : '';
     const horasBloqueadas = ALMUERZOS_BARBEROS[nombreBarberoLimpio] || [];
 
     while (h < 17 || (h === 17 && m === 0)) {
       const horaFormateada = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
-      
       if (!horasBloqueadas.includes(horaFormateada)) horarios.push(horaFormateada)
-      
-      m += 45
-      if (m >= 60) { h++; m -= 60 }
-    }
-    return horarios
-  }
-    while (h < 17 || (h === 17 && m === 0)) {
-      const horaFormateada = `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`
-      
-      if (!horasBloqueadas.includes(horaFormateada)) horarios.push(horaFormateada)
-      
       m += 45
       if (m >= 60) { h++; m -= 60 }
     }
@@ -156,21 +139,14 @@ export default function FormularioNegocio() {
         setMensaje(`❌ Error real: ${error.message} (Cód: ${error.code})`);
       }
     } else {
-      
-      // ==========================================
-      // MAGIA WHATSAPP: NOTIFICACIÓN AL ADMIN + AUTO-MENSAJE AL CLIENTE
-      // ==========================================
-      const numeroAdmin = "50376885349"; // <-- ¡PON TU NÚMERO AQUÍ!
-      const apiKeyBot = "3741282";       // <-- ¡PON TU API KEY AQUÍ!
+      const numeroAdmin = "50376885349"; 
+      const apiKeyBot = "3741282";      
 
       const [anio, mes, dia] = formData.fecha.split('-');
       const fechaLocal = `${dia}/${mes}/${anio}`;
 
-      const limpiarTildes = (texto) => {
-        return texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-      };
+      const limpiarTildes = (texto) => texto.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
-      // 1. Enviamos el mensaje en silencio a Charlie (vía CallMeBot)
       const mensajeCrudo = `¡NUEVA CITA EN TURNOPRO! ✂️📅\n\n*Cliente:* ${formData.cliente_nombre}\n*Servicio:* ${formData.servicio}\n*Barbero:* ${formData.barbero}\n*Fecha:* ${fechaLocal} a las ${formData.hora}\n*Tel:* ${formData.cliente_telefono}`;
       const textoMensaje = limpiarTildes(mensajeCrudo);
       
@@ -178,20 +154,62 @@ export default function FormularioNegocio() {
         await fetch(`https://api.callmebot.com/whatsapp.php?phone=${numeroAdmin}&text=${encodeURIComponent(textoMensaje)}&apikey=${apiKeyBot}`);
       } catch (err) {}
 
-      // 2. Preparamos el Auto-Mensaje para el botón del cliente
       const barberoMayuscula = formData.barbero.charAt(0).toUpperCase() + formData.barbero.slice(1);
-      
-      const textoParaCharlie = `¡Hola! Soy ${formData.cliente_nombre}. Acabo de agendar en TurnoPro un ${formData.servicio} con ${barberoMayuscula} para el ${fechaLocal} a las ${formData.hora}. Mi código de reserva es #${codigoGenerado}. ¡Nos vemos!`;
-      
+      const textoParaCharlie = `¡Hola! Soy ${formData.cliente_nombre}. Acabo de agendar en TurnoPro un ${formData.servicio} con ${barberoMayuscula} para el ${fechaLocal} a las ${formData.hora}. Mi código es #${codigoGenerado}. ¡Nos vemos!`;
       const urlWhatsAppCliente = `https://api.whatsapp.com/send?phone=${numeroAdmin}&text=${encodeURIComponent(textoParaCharlie)}`;
-      // ==========================================
       
-      // Guardamos el ticket inyectándole la URL mágica del WhatsApp
       setTicket({ ...formData, codigo: codigoGenerado, waUrl: urlWhatsAppCliente })
       setFormData({ ...formData, cliente_nombre: '', cliente_telefono: '', hora: '', fecha: '' })
       setMensaje('')
+      // Reiniciamos los estados de la foto por si es una segunda reserva
+      setFotoSubida(false)
+      setSubiendoFoto(false)
     }
     setCargando(false)
+  }
+
+  // ==========================================
+  // FUNCIÓN MAGICA: SUBIR FOTO A SUPABASE
+  // ==========================================
+  const handleSubirComprobante = async (e) => {
+    const file = e.target.files[0]
+    if (!file) return
+
+    setSubiendoFoto(true)
+    setMensaje('') // Limpiar errores previos si los hay
+
+    try {
+      // 1. Inventamos un nombre único para la foto usando el código del ticket
+      const extension = file.name.split('.').pop()
+      const nombreArchivo = `${ticket.codigo}-${Date.now()}.${extension}`
+
+      // 2. La subimos al cajón "comprobantes"
+      const { error: errorSubida } = await supabase.storage
+        .from('comprobantes')
+        .upload(nombreArchivo, file)
+
+      if (errorSubida) throw errorSubida
+
+      // 3. Obtenemos el link público de la foto
+      const { data: { publicUrl } } = supabase.storage
+        .from('comprobantes')
+        .getPublicUrl(nombreArchivo)
+
+      // 4. Guardamos ese link en la columna de nuestra base de datos
+      const { error: errorUpdate } = await supabase
+        .from('reservas')
+        .update({ comprobante_url: publicUrl })
+        .eq('codigo', ticket.codigo)
+
+      if (errorUpdate) throw errorUpdate
+
+      setFotoSubida(true)
+    } catch (err) {
+      console.error(err)
+      setMensaje('❌ Hubo un error al subir la foto. Intenta de nuevo.')
+    } finally {
+      setSubiendoFoto(false)
+    }
   }
 
   if (cargandoNegocio) return <div className="min-h-screen flex items-center justify-center bg-gray-100 font-sans font-black tracking-widest text-gray-400">CARGANDO...</div>
@@ -204,36 +222,72 @@ export default function FormularioNegocio() {
           <div className="animate-in zoom-in duration-500">
             <div className="text-center mb-6">
               <div className="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4 shadow-inner"><span className="text-3xl">✅</span></div>
-              <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">¡Reserva Confirmada!</h2>
-              <p className="text-sm font-bold text-slate-500 mt-2">Confirma tu cita en el botón de abajo 👇</p>
+              <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">¡Turno Apartado!</h2>
+              <p className="text-sm font-bold text-slate-500 mt-2">Tu espacio está reservado. Solo falta un paso 👇</p>
             </div>
+            
             <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 p-6 mb-6 relative">
-              <div className="absolute -left-4 top-1/2 w-8 h-8 bg-white rounded-full border-r-2 border-dashed border-gray-300 transform -translate-y-1/2"></div>
-              <div className="absolute -right-4 top-1/2 w-8 h-8 bg-white rounded-full border-l-2 border-dashed border-gray-300 transform -translate-y-1/2"></div>
               <div className="text-center mb-6 border-b-2 border-dashed border-gray-200 pb-6">
                 <p className="text-[10px] font-black uppercase tracking-widest text-gray-400 mb-1">CÓDIGO DE RESERVA</p>
                 <p className="text-4xl font-black text-blue-600 tracking-tighter">#{ticket.codigo}</p>
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div><p className="text-[10px] font-black uppercase text-gray-400">Cliente</p><p className="text-base font-bold text-gray-900 truncate">{ticket.cliente_nombre}</p></div>
                 <div><p className="text-[10px] font-black uppercase text-gray-400">Barbero</p><p className="text-base font-bold text-gray-900">{ticket.barbero}</p></div>
-                <div><p className="text-[10px] font-black uppercase text-gray-400">Día</p><p className="text-base font-bold text-gray-900">{ticket.fecha}</p></div>
                 <div><p className="text-[10px] font-black uppercase text-gray-400">Hora</p><p className="text-base font-bold text-yellow-600">{ticket.hora}</p></div>
-                <div className="col-span-2 mt-2 pt-4 border-t border-gray-200"><p className="text-[10px] font-black uppercase text-gray-400">Servicio</p><p className="text-sm font-bold text-gray-700 bg-gray-100 py-2 px-3 rounded-lg inline-block mt-1">✂️ {ticket.servicio}</p></div>
               </div>
             </div>
-            
-            {/* NUEVO BOTÓN: Auto-Mensaje de WhatsApp para el cliente */}
+
+            {/* ========================================== */}
+            {/* NUEVA SECCIÓN: TRANSFERENCIA BANCARIA      */}
+            {/* ========================================== */}
+            {!fotoSubida ? (
+              <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-6 text-center shadow-sm">
+                <h3 className="font-black text-blue-800 uppercase tracking-tighter mb-2 text-lg">Paso Final: Pago</h3>
+                <p className="text-xs text-blue-600 font-bold mb-4">Asegura tu cita haciendo el pago a la cuenta de la barbería y sube tu comprobante aquí abajo.</p>
+                
+                <div className="bg-white rounded-xl p-4 mb-4 border border-blue-100 text-left shadow-sm">
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-gray-100 pb-1">Datos Bancarios</p>
+                  
+                  <div className="space-y-1.5 mb-3">
+                    <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><span>🏦</span> Banco Promerica</p>
+                    <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><span>🔢</span> Cta: <span className="font-black font-mono text-blue-700">0000-0000-00</span></p>
+                    <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><span>👤</span> Nombre: Carlos [Apellido]</p>
+                    <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><span>📧</span> Correo: charlie@correo.com</p>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <p className="text-[10px] font-bold text-slate-600 leading-relaxed">
+                      💡 <span className="text-blue-600 font-black uppercase">Instrucciones:</span> Si tienes Promerica, haz transferencia directa. Para otros bancos usa <span className="font-black">Transfer365</span>.
+                    </p>
+                  </div>
+                </div>
+
+                <label className="cursor-pointer bg-blue-600 text-white font-black py-3 px-6 rounded-xl hover:bg-blue-700 shadow-md transition-all uppercase tracking-widest text-xs inline-block w-full active:scale-95">
+                  {subiendoFoto ? 'Subiendo foto... ⏳' : '📸 Subir Captura de Pago'}
+                  <input type="file" accept="image/*" className="hidden" onChange={handleSubirComprobante} disabled={subiendoFoto} />
+                </label>
+              </div>
+            ) : (
+              <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6 text-center shadow-sm animate-in zoom-in duration-300">
+                <span className="text-3xl block mb-2">💸</span>
+                <h3 className="font-black text-green-700 uppercase tracking-tighter text-lg">¡Pago Recibido!</h3>
+                <p className="text-xs text-green-600 font-bold">Tu cita está 100% asegurada. Nos vemos pronto.</p>
+              </div>
+            )}
+            {/* ========================================== */}
+
+            {mensaje && <div className="mb-4 p-3 text-center font-bold rounded-xl border border-red-200 bg-red-50 text-red-600 text-xs">{mensaje}</div>}
+
             <a 
               href={ticket.waUrl} 
               target="_blank" 
               rel="noopener noreferrer" 
               className="w-full flex justify-center items-center gap-2 bg-[#25D366] text-white font-black py-4 rounded-xl hover:bg-green-600 shadow-lg shadow-green-200 transition-all uppercase tracking-widest text-xs mb-3 active:scale-95"
             >
-              <span className="text-lg">💬</span> Confirmar mi Cita por WhatsApp
+              <span className="text-lg">💬</span> Avisar por WhatsApp
             </a>
 
-            <button onClick={() => setTicket(null)} className="w-full bg-gray-900 text-white font-black py-4 rounded-xl hover:bg-gray-800 transition-all uppercase tracking-widest text-xs active:scale-95">Hacer otra reserva</button>
+            <button onClick={() => { setTicket(null); setFotoSubida(false); setSubiendoFoto(false); }} className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[10px] active:scale-95">Hacer otra reserva</button>
           </div>
         ) : (
           <>
