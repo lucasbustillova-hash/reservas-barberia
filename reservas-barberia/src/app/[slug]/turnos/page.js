@@ -20,9 +20,6 @@ export default function TurnosAdmin() {
   
   const [formAusencia, setFormAusencia] = useState({ barbero: '', fecha: '' })
 
-  // ==========================================
-  // NUEVOS ESTADOS PARA EL MODAL DE FOTOS
-  // ==========================================
   const [fotoModal, setFotoModal] = useState(null)
   const [turnoActivo, setTurnoActivo] = useState(null)
 
@@ -130,9 +127,6 @@ export default function TurnosAdmin() {
     setAusencias(ausencias.filter(a => a.id !== id));
   }
 
-  // ==========================================
-  // FUNCIONES DEL MODAL DE COMPROBANTES
-  // ==========================================
   const abrirModal = (turno) => {
     setTurnoActivo(turno)
     setFotoModal(turno.comprobante_url)
@@ -154,7 +148,6 @@ export default function TurnosAdmin() {
       cerrarModal()
     }
   }
-  // ==========================================
 
   const turnosFiltrados = turnos.filter(t => {
     const coincideBarbero = filtroBarbero === 'Todos' || t.barbero === filtroBarbero;
@@ -300,6 +293,11 @@ export default function TurnosAdmin() {
                   <div className="flex-1 text-center md:text-left">
                     <p className="text-sm font-black text-blue-600 uppercase tracking-widest mb-1">{nombreBarbero}</p>
                     <h3 className="text-2xl font-extrabold text-slate-900 uppercase tracking-tight">{nombre}</h3>
+                    {t.created_at && (
+                      <p className="text-[10px] font-bold text-slate-400 mt-0.5">
+                        ⏳ Cita creada a las: {new Date(t.created_at).toLocaleTimeString('es-SV', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    )}
                     <div className="flex gap-2 justify-center md:justify-start mt-3 flex-wrap items-center">
                       <span className="inline-block bg-slate-50 text-slate-600 text-xs font-bold px-3 py-1.5 rounded-lg border border-slate-200">✂️ {t.servicio || 'Servicio'}</span>
                       {t.codigo && (
@@ -307,12 +305,16 @@ export default function TurnosAdmin() {
                       )}
                       
                       {/* ========================================== */}
-                      {/* INDICADOR DE FOTO EN LA TARJETA            */}
+                      {/* INDICADOR DE PAGO ACTUALIZADO              */}
                       {/* ========================================== */}
                       {t.comprobante_url ? (
                         <button onClick={() => abrirModal(t)} className="inline-flex items-center gap-1 bg-green-100 text-green-700 text-xs font-black px-3 py-1.5 rounded-lg border border-green-300 uppercase shadow-sm hover:bg-green-200 transition-all active:scale-95">
                           📎 Ver Recibo
                         </button>
+                      ) : t.metodo_pago === 'efectivo' ? (
+                        <span className="inline-flex items-center gap-1 bg-slate-100 text-slate-600 text-[10px] font-black px-3 py-1.5 rounded-lg border border-slate-300 uppercase shadow-sm">
+                          💵 Pago en Local
+                        </span>
                       ) : (
                         <span className="inline-block bg-red-50 text-red-500 text-[10px] font-bold px-2 py-1 rounded-md border border-red-100 uppercase tracking-widest">
                           ⚠️ Sin Pago

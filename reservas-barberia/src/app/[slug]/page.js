@@ -25,9 +25,10 @@ export default function FormularioNegocio() {
   const [cargando, setCargando] = useState(false)
   const [ticket, setTicket] = useState(null)
 
-  // NUEVOS ESTADOS PARA LA FOTO
+  // ESTADOS ACTUALIZADOS PARA EL FLUJO HÍBRIDO
   const [subiendoFoto, setSubiendoFoto] = useState(false)
-  const [fotoSubida, setFotoSubida] = useState(false)
+  const [pagoCompletado, setPagoCompletado] = useState(false)
+  const [metodoElegido, setMetodoElegido] = useState(null) // 'transferencia' | 'efectivo'
 
   const ALMUERZOS_BARBEROS = {
     'charlie': ['11:45'],
@@ -69,7 +70,6 @@ export default function FormularioNegocio() {
   const generarHorarios = () => {
     const horarios = []
     let h = 8, m = 0
-    
     const nombreBarberoLimpio = formData.barbero ? formData.barbero.trim().toLowerCase() : '';
     const horasBloqueadas = ALMUERZOS_BARBEROS[nombreBarberoLimpio] || [];
 
@@ -155,58 +155,79 @@ export default function FormularioNegocio() {
       } catch (err) {}
 
       const barberoMayuscula = formData.barbero.charAt(0).toUpperCase() + formData.barbero.slice(1);
-      const textoParaCharlie = `¡Hola! Soy ${formData.cliente_nombre}. Acabo de agendar en TurnoPro un ${formData.servicio} con ${barberoMayuscula} para el ${fechaLocal} a las ${formData.hora}. Mi código es #${codigoGenerado}. ¡Nos vemos!`;
+      const textoParaCharlie = `¡Hola! Soy ${formData.cliente_nombre}. Acabo de agendar en TurnoPro un ${formData.servicio} con ${barberoMayuscula} para el ${fechaLocal} a las ${formData.hora}. Mi código es #${codigoGenerado}. Tomo nota de la regla de los 15 minutos de gracia. ¡Nos vemos!`;
       const urlWhatsAppCliente = `https://api.whatsapp.com/send?phone=${numeroAdmin}&text=${encodeURIComponent(textoParaCharlie)}`;
       
       setTicket({ ...formData, codigo: codigoGenerado, waUrl: urlWhatsAppCliente })
       setFormData({ ...formData, cliente_nombre: '', cliente_telefono: '', hora: '', fecha: '' })
       setMensaje('')
-      // Reiniciamos los estados de la foto por si es una segunda reserva
-      setFotoSubida(false)
+      setPagoCompletado(false)
       setSubiendoFoto(false)
+      setMetodoElegido(null)
     }
     setCargando(false)
   }
 
   // ==========================================
-  // FUNCIÓN MAGICA: SUBIR FOTO A SUPABASE
+  // OPCIÓN 1: PAGO CON TRANSFERENCIA
   // ==========================================
   const handleSubirComprobante = async (e) => {
     const file = e.target.files[0]
     if (!file) return
 
     setSubiendoFoto(true)
-    setMensaje('') // Limpiar errores previos si los hay
+    setMensaje('')
 
     try {
-      // 1. Inventamos un nombre único para la foto usando el código del ticket
       const extension = file.name.split('.').pop()
       const nombreArchivo = `${ticket.codigo}-${Date.now()}.${extension}`
 
-      // 2. La subimos al cajón "comprobantes"
-      const { error: errorSubida } = await supabase.storage
-        .from('comprobantes')
-        .upload(nombreArchivo, file)
-
+      const { error: errorSubida } = await supabase.storage.from('comprobantes').upload(nombreArchivo, file)
       if (errorSubida) throw errorSubida
 
-      // 3. Obtenemos el link público de la foto
-      const { data: { publicUrl } } = supabase.storage
-        .from('comprobantes')
-        .getPublicUrl(nombreArchivo)
+      const { data: { publicUrl } } = supabase.storage.from('comprobantes').getPublicUrl(nombreArchivo)
 
-      // 4. Guardamos ese link en la columna de nuestra base de datos
-      const { error: errorUpdate } = await supabase
+      const { data: updateData, error: errorUpdate } = await supabase
         .from('reservas')
-        .update({ comprobante_url: publicUrl })
+        .update({ comprobante_url: publicUrl, metodo_pago: 'transferencia' })
         .eq('codigo', ticket.codigo)
         .select()
-      if (errorUpdate) throw errorUpdate
 
-      setFotoSubida(true)
+      if (errorUpdate) throw errorUpdate
+      if (!updateData || updateData.length === 0) throw new Error('La base de datos bloqueó la actualización.');
+
+      setMetodoElegido('transferencia')
+      setPagoCompletado(true)
     } catch (err) {
       console.error(err)
       setMensaje('❌ Hubo un error al subir la foto. Intenta de nuevo.')
+    } finally {
+      setSubiendoFoto(false)
+    }
+  }
+
+  // ==========================================
+  // OPCIÓN 2: PAGO EN EFECTIVO (NUEVO)
+  // ==========================================
+  const handlePagoEfectivo = async () => {
+    setSubiendoFoto(true) 
+    setMensaje('')
+
+    try {
+      const { data: updateData, error: errorUpdate } = await supabase
+        .from('reservas')
+        .update({ metodo_pago: 'efectivo' })
+        .eq('codigo', ticket.codigo)
+        .select()
+
+      if (errorUpdate) throw errorUpdate
+      if (!updateData || updateData.length === 0) throw new Error('La base de datos bloqueó la actualización.');
+
+      setMetodoElegido('efectivo')
+      setPagoCompletado(true)
+    } catch (err) {
+      console.error(err)
+      setMensaje('❌ Hubo un error al procesar tu selección. Intenta de nuevo.')
     } finally {
       setSubiendoFoto(false)
     }
@@ -225,6 +246,9 @@ export default function FormularioNegocio() {
               <h2 className="text-2xl font-black text-gray-900 uppercase tracking-tight">¡Turno Apartado!</h2>
               <p className="text-sm font-bold text-slate-500 mt-2">Tu espacio está reservado. Solo falta un paso 👇</p>
             </div>
+          <div className="bg-yellow-50 border border-yellow-200 text-yellow-800 text-[10px] font-black p-2 rounded-lg mt-3 uppercase tracking-widest mx-auto max-w-[250px] shadow-sm">
+                ⏳ Periodo de gracia: 15 minutos
+              </div>
             
             <div className="bg-gray-50 rounded-2xl border-2 border-dashed border-gray-300 p-6 mb-6 relative">
               <div className="text-center mb-6 border-b-2 border-dashed border-gray-200 pb-6">
@@ -238,15 +262,15 @@ export default function FormularioNegocio() {
             </div>
 
             {/* ========================================== */}
-            {/* NUEVA SECCIÓN: TRANSFERENCIA BANCARIA      */}
+            {/* SECCIÓN HÍBRIDA: TRANSFERENCIA O EFECTIVO  */}
             {/* ========================================== */}
-            {!fotoSubida ? (
+            {!pagoCompletado ? (
               <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5 mb-6 text-center shadow-sm">
-                <h3 className="font-black text-blue-800 uppercase tracking-tighter mb-2 text-lg">Paso Final: Pago</h3>
-                <p className="text-xs text-blue-600 font-bold mb-4">Asegura tu cita haciendo el pago a la cuenta de la barbería y sube tu comprobante aquí abajo.</p>
+                <h3 className="font-black text-blue-800 uppercase tracking-tighter mb-2 text-lg">Paso Final: Confirmar Pago</h3>
+                <p className="text-xs text-blue-600 font-bold mb-4">¿Cómo prefieres pagar tu cita?</p>
                 
                 <div className="bg-white rounded-xl p-4 mb-4 border border-blue-100 text-left shadow-sm">
-                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-gray-100 pb-1">Datos Bancarios</p>
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-2 border-b border-gray-100 pb-1">Opción 1: Transferencia</p>
                   
                   <div className="space-y-1.5 mb-3">
                     <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><span>🏦</span> Banco Promerica</p>
@@ -255,23 +279,38 @@ export default function FormularioNegocio() {
                     <p className="text-sm font-bold text-slate-700 flex items-center gap-2"><span>📧</span> Correo: charlie@correo.com</p>
                   </div>
 
-                  <div className="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
-                    <p className="text-[10px] font-bold text-slate-600 leading-relaxed">
-                      💡 <span className="text-blue-600 font-black uppercase">Instrucciones:</span> Si tienes Promerica, haz transferencia directa. Para otros bancos usa <span className="font-black">Transfer365</span>.
-                    </p>
-                  </div>
+                  <label className="cursor-pointer bg-blue-600 text-white font-black py-3 px-6 rounded-xl hover:bg-blue-700 shadow-md transition-all uppercase tracking-widest text-xs inline-block w-full text-center active:scale-95">
+                    {subiendoFoto ? 'Procesando... ⏳' : '📸 Subir Captura de Pago'}
+                    <input type="file" accept="image/*" className="hidden" onChange={handleSubirComprobante} disabled={subiendoFoto} />
+                  </label>
                 </div>
 
-                <label className="cursor-pointer bg-blue-600 text-white font-black py-3 px-6 rounded-xl hover:bg-blue-700 shadow-md transition-all uppercase tracking-widest text-xs inline-block w-full active:scale-95">
-                  {subiendoFoto ? 'Subiendo foto... ⏳' : '📸 Subir Captura de Pago'}
-                  <input type="file" accept="image/*" className="hidden" onChange={handleSubirComprobante} disabled={subiendoFoto} />
-                </label>
+                <div className="flex items-center justify-center my-3 relative">
+                  <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-blue-200"></div></div>
+                  <span className="relative text-[10px] font-black text-blue-400 uppercase bg-blue-50 px-3 tracking-widest">O TAMBIÉN</span>
+                </div>
+
+                <div className="bg-white rounded-xl p-4 border border-slate-200 text-center shadow-sm">
+                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mb-3">Opción 2: En el Local</p>
+                  <button 
+                    onClick={handlePagoEfectivo}
+                    disabled={subiendoFoto}
+                    className="w-full bg-slate-800 text-white font-black py-3 px-6 rounded-xl hover:bg-slate-900 shadow-md transition-all uppercase tracking-widest text-xs active:scale-95 disabled:bg-slate-400"
+                  >
+                    💵 Pagaré en Efectivo al Llegar
+                  </button>
+                </div>
+
               </div>
             ) : (
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6 text-center shadow-sm animate-in zoom-in duration-300">
-                <span className="text-3xl block mb-2">💸</span>
-                <h3 className="font-black text-green-700 uppercase tracking-tighter text-lg">¡Pago Recibido!</h3>
-                <p className="text-xs text-green-600 font-bold">Tu cita está 100% asegurada. Nos vemos pronto.</p>
+              <div className={`border rounded-2xl p-5 mb-6 text-center shadow-sm animate-in zoom-in duration-300 ${metodoElegido === 'efectivo' ? 'bg-slate-50 border-slate-200' : 'bg-green-50 border-green-200'}`}>
+                <span className="text-4xl block mb-2">{metodoElegido === 'efectivo' ? '💵' : '💸'}</span>
+                <h3 className={`font-black uppercase tracking-tighter text-lg ${metodoElegido === 'efectivo' ? 'text-slate-700' : 'text-green-700'}`}>
+                  {metodoElegido === 'efectivo' ? '¡Pago en Efectivo!' : '¡Pago Recibido!'}
+                </h3>
+                <p className={`text-xs font-bold mt-1 ${metodoElegido === 'efectivo' ? 'text-slate-500' : 'text-green-600'}`}>
+                  {metodoElegido === 'efectivo' ? 'Tu cita está asegurada. Recuerda llevar el efectivo.' : 'Tu cita está 100% asegurada. Nos vemos pronto.'}
+                </p>
               </div>
             )}
             {/* ========================================== */}
@@ -287,7 +326,7 @@ export default function FormularioNegocio() {
               <span className="text-lg">💬</span> Avisar por WhatsApp
             </a>
 
-            <button onClick={() => { setTicket(null); setFotoSubida(false); setSubiendoFoto(false); }} className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[10px] active:scale-95">Hacer otra reserva</button>
+            <button onClick={() => { setTicket(null); setPagoCompletado(false); setSubiendoFoto(false); setMetodoElegido(null); }} className="w-full bg-slate-100 text-slate-500 font-black py-4 rounded-xl hover:bg-slate-200 transition-all uppercase tracking-widest text-[10px] active:scale-95">Hacer otra reserva</button>
           </div>
         ) : (
           <>
